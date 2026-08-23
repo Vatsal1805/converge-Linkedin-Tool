@@ -14,7 +14,7 @@ The **Converge LinkedIn Engine** is an end-to-end full-stack web application tha
 - 🛡️ **Strict Anti-AI Slop Filter:** Hard-bans generic AI jargon (`delve`, `game-changer`, `unleash`, `harness`, `secret sauce`) and emoji bullet point spam.
 - 💬 **Conversational AI Refinement Drawer:** Allows real-time natural language prompts (*"make it 20% shorter"*, *"remove pricing"*) to edit drafts on the fly.
 - 📊 **Performance Tracker & Strategy Engine:** Tracks impressions, reactions, comments, and DMs with 3 interactive SVG charts and automated AI recommendations.
-- 🕵️ **3-Tab Competitor & Lead Intelligence Hub:** Crawls public ad transparency libraries (Meta, LinkedIn, Google Ads) and finds pre-qualified business leads with **Google Maps URLs**, **Phone numbers**, and **Contact Emails**.
+- 🕵️ **3-Tab Competitor & Lead Intelligence Hub:** Crawling public ad transparency libraries (Meta, LinkedIn, Google Ads) and finding pre-qualified business leads with **Google Maps URLs**, **Phone numbers**, and **Contact Emails**.
 - 🐙 **Safe GitHub Org Sync:** Crawls shipped client repositories and AI builds (metadata only, zero code exposure) to generate authentic **Proof** case studies.
 - ⚡ **Always-On Background Crawlers (`node-cron`):** Runs 3x daily (8am, 2pm, 8pm) to crawl Reddit founder signals (`r/startups`, `r/SaaS`, `r/webdev`), reframing trends into Converge's 5 core services with strict database deduplication.
 
