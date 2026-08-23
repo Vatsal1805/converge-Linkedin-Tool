@@ -189,4 +189,28 @@ router.get('/crawler/run-now', async (req, res) => {
   }
 });
 
+// 2. Cron Audit Status route: GET /api/cron/status
+router.get('/cron/status', async (req, res) => {
+  try {
+    const { getCronStatusAudit } = await import('../cron.js');
+    const status = await getCronStatusAudit();
+    return res.json(status);
+  } catch (err) {
+    console.error('Error getting cron status:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 3. Trigger Full Auto Crawl Routine route: POST /api/cron/run-full
+router.post('/cron/run-full', async (req, res) => {
+  try {
+    const { runFullAutoCrawlRoutine } = await import('../cron.js');
+    const result = await runFullAutoCrawlRoutine();
+    return res.json(result);
+  } catch (err) {
+    console.error('Error running full auto crawl routine:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 export default router;

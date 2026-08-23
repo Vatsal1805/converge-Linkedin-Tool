@@ -2,26 +2,28 @@ import express from 'express';
 import { supabase } from '../config/supabase.js';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
+import { syncLeadToGoogleSheet } from '../config/googleSheets.js';
 
 dotenv.config();
 
 const router = express.Router();
 
-// Helper: Call Gemini 3.5 Flash or OpenRouter for live search grounding
+// Helper: Call Gemini 3.5 Flash with Live Google Search Grounding Tool
 async function callGeminiLiveSearch(promptText) {
   const geminiKey = process.env.GEMINI_API_KEY;
   const openRouterKey = process.env.OPENROUTER_API_KEY;
 
   if (geminiKey && !geminiKey.includes('placeholder')) {
     try {
-      console.log('[Gemini Live Search] Executing live web grounding query...');
+      console.log('[Gemini Live Search] Executing live Google Search Grounding tool query...');
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: promptText }] }],
-          generationConfig: { temperature: 0.5 }
+          tools: [{ google_search: {} }],
+          generationConfig: { temperature: 0.2 }
         })
       });
 
@@ -38,29 +40,38 @@ async function callGeminiLiveSearch(promptText) {
     }
   }
 
-  // Fallback to OpenRouter
+  // Fallback to 100% Free OpenRouter Models
   if (openRouterKey && !openRouterKey.includes('placeholder')) {
-    try {
-      console.log('[OpenRouter Search] Executing fallback query...');
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openRouterKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'meta-llama/llama-3.3-70b-instruct:free',
-          messages: [{ role: 'user', content: promptText }],
-          temperature: 0.5,
-        })
-      });
+    const fallbackModels = [
+      'google/gemini-2.0-flash-lite-001',
+      'meta-llama/llama-3.1-8b-instruct:free',
+      'deepseek/deepseek-chat'
+    ];
 
-      if (response.ok) {
-        const data = await response.json();
-        return data.choices?.[0]?.message?.content;
+    for (const model of fallbackModels) {
+      try {
+        console.log(`[OpenRouter Search] Executing fallback query with model: ${model}...`);
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openRouterKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [{ role: 'user', content: promptText }],
+            temperature: 0.2,
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const text = data.choices?.[0]?.message?.content;
+          if (text) return text;
+        }
+      } catch (err) {
+        console.error(`[OpenRouter Search Error] ${model}:`, err.message);
       }
-    } catch (err) {
-      console.error('[OpenRouter Search Error]:', err.message);
     }
   }
 
@@ -305,27 +316,48 @@ router.get('/leads', async (req, res) => {
   }
 });
 
-// 7. Discover Real Qualified Business Leads via Gemini (With Full Google Maps & Contact Info)
+// 7. Discover Real Qualified Business Leads via Gemini (5 to 6 Leads per Run)
 router.post('/leads/discover-live', async (req, res) => {
   const { niche = 'Dental Clinics', location = 'Dubai, UAE', leadType = 'web_dev' } = req.body;
 
   const isVideo = leadType === 'aradhya_video';
-  const promptText = `Search the live web for 2 real or highly realistic business leads for an agency sales team.
-Target Niche: "${niche}"
-Location: "${location}"
-Lead Type: ${isVideo ? 'Aradhya 4K AI Video Spokesperson Target (D2C/Visual brand running static image ads)' : 'Web Development & SEO Redesign Target (Business with 3.0-4.2 rating, missing website, or slow mobile load)'}
+  
+  const promptText = `Perform a strict live Google Maps search to find 5 REAL, active business leads in target location "${location}" for niche "${niche}".
 
-PROVIDE COMPLETE VERIFICATION DETAILS FOR EACH LEAD:
-1. Business Name
+OPERATIONAL STATUS & SIZE FILTER:
+- STRICTLY EXCLUDE PERMANENTLY CLOSED OR TEMPORARILY CLOSED BUSINESSES. Target ONLY 100% active, open, operating businesses. If a Google Maps listing has a 'Permanently closed' label, REJECT IT IMMEDIATELY.
+- Target ONLY independent 1 to 3 location boutique clinics, standalone practices, local brokerages, or SMB D2C brands (team size 5-30 people).
+- STRICTLY EXCLUDE massive 50+ location enterprise chains or franchise conglomerates.
+
+STRICT REALITY & ANTI-HALLUCINATION CONSTRAINTS:
+1. GOOGLE MAPS PLACE GROUNDING: Extract ONLY real, actively open businesses listed on official Google Maps Place Cards.
+2. ABSOLUTE BAN ON SYNTHETIC DOMAINS & EMAILS:
+   - DO NOT fabricate domain names (e.g. NEVER generate www.businessname.com if it is not explicitly published on their Google Maps Place Card!).
+   - If Google Maps shows NO website button, set "website_url" to null.
+   - DO NOT guess synthetic emails like "info@domain.com". If an official email is published on Google Maps or contact page, return it. Otherwise return null.
+
+LEAD QUALIFICATION CRITERIA:
+${isVideo 
+  ? `TARGET: Independent D2C/Visual brands in "${niche}" running static image Meta ads or lacking 4K video ads.
+     Qualification Reason MUST specify: "Running static image ads on Meta; missing 4K AI Video Spokesperson for 2.8x higher CTR."`
+  : `QUALIFY ONLY UNDER ONE OF THESE 2 EXACT SCENARIOS:
+     - SCENARIO 1 (No Website Target): Business is actively operating with Google rating/reviews BUT HAS NO WEBSITE.
+       Qualification Reason: "Active open business profile (Rating: X.X) with NO website listed. Losing 80%+ of online booking traffic."
+     - SCENARIO 2 (Flawed Website Target): Business HAS a verified website, BUT it has concrete pitchable flaws (slow mobile load speed >3.5s, non-responsive desktop-first 2010s UI, messy user flow, missing direct WhatsApp CTA or booking widget above fold).
+       Qualification Reason MUST list 2-3 specific technical flaws (e.g. "Slow 4.2s mobile load, non-responsive mobile layout, no direct WhatsApp CTA above fold").`
+}
+
+PROVIDE COMPLETE VERIFIED DETAILS FOR EACH OF THE 5 LEADS:
+1. Business Name (Exact official name on Google Maps)
 2. Niche
 3. City & State/Country
-4. Google Star Rating (e.g. 3.6 or 4.1)
-5. Website URL
+4. Google Star Rating (e.g. 3.8 or 4.4)
+5. Website URL (Exact verified URL on Google Maps, or null if no website)
 6. Direct Google Maps Search URL (Format: "https://www.google.com/maps/search/?api=1&query=" + URL encoded business name + location)
-7. Phone Number (e.g. +971-4-XXX-XXXX or +1-310-XXX-XXXX)
-8. Contact Email (e.g. contact@business.com or info@business.com)
-9. Detailed Qualification Reason (why they need ${isVideo ? 'Aradhya AI Video Ads' : 'a Web Redesign'})
-10. Active Ad Status (e.g. 'Static Image Meta Ads Active' or 'Search Ads Only')
+7. Phone Number (Exact verified phone number from Google Maps listing)
+8. Email (Verified email published on Google Maps / site, or null if unlisted)
+9. Qualification Reason (Following Scenario 1 or Scenario 2 rules above)
+10. Active Ad Status (e.g. 'No Active Website', 'Static Image Meta Ads Active', or 'Search Ads Only')
 
 Return PURE JSON ONLY:
 {
@@ -334,7 +366,7 @@ Return PURE JSON ONLY:
       "business_name": "...",
       "niche": "...",
       "city_state": "...",
-      "rating": 3.6,
+      "rating": 3.8,
       "website_url": "...",
       "google_map_url": "...",
       "phone_number": "...",
@@ -365,7 +397,7 @@ Return PURE JSON ONLY:
       const mapUrl = item.google_map_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.business_name + ' ' + (item.city_state || location))}`;
 
       try {
-        const { data: newLead, error: leadErr } = await supabase
+        let { data: newLead, error: leadErr } = await supabase
           .from('leads')
           .insert([
             {
@@ -386,25 +418,48 @@ Return PURE JSON ONLY:
           .select()
           .single();
 
-        if (!leadErr && newLead) {
-          savedLeads.push(newLead);
-        } else {
-          savedLeads.push({
-            id: crypto.randomUUID(),
-            lead_type: leadType,
-            business_name: item.business_name,
-            niche: item.niche || niche,
-            city_state: item.city_state || location,
-            rating: item.rating || 3.8,
-            website_url: item.website_url || null,
-            google_map_url: mapUrl,
-            phone_number: item.phone_number || null,
-            email: item.email || null,
-            qualification_reason: item.qualification_reason || 'Qualified via Gemini Live Search',
-            ad_status: item.ad_status || 'Meta Ads Active',
-            status: 'new'
-          });
+        if (leadErr && leadErr.message.includes('column')) {
+          // Fallback if schema missing optional contact columns
+          const { data: baseLead } = await supabase
+            .from('leads')
+            .insert([
+              {
+                lead_type: leadType,
+                business_name: item.business_name,
+                niche: item.niche || niche,
+                city_state: item.city_state || location,
+                rating: item.rating || 3.8,
+                website_url: item.website_url || null,
+                qualification_reason: item.qualification_reason || 'Qualified via Gemini Live Search',
+                ad_status: item.ad_status || 'Meta Ads Active',
+                status: 'new'
+              }
+            ])
+            .select()
+            .single();
+
+          newLead = baseLead;
+          leadErr = null;
         }
+
+        const fullLeadObj = {
+          id: newLead?.id || crypto.randomUUID(),
+          lead_type: leadType,
+          business_name: item.business_name,
+          niche: item.niche || niche,
+          city_state: item.city_state || location,
+          rating: item.rating || 3.8,
+          website_url: item.website_url || null,
+          google_map_url: mapUrl,
+          phone_number: item.phone_number || null,
+          email: item.email || null,
+          qualification_reason: item.qualification_reason || 'Qualified via Gemini Live Search',
+          ad_status: item.ad_status || 'Meta Ads Active',
+          status: 'new'
+        };
+
+        savedLeads.push(fullLeadObj);
+        syncLeadToGoogleSheet(fullLeadObj).catch(e => console.warn(e.message));
       } catch (dbErr) {
         console.warn('Could not insert lead to Supabase:', dbErr.message);
       }

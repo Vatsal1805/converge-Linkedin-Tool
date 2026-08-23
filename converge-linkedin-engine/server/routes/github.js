@@ -59,49 +59,10 @@ router.get('/github/projects', async (req, res) => {
       .order('last_synced_at', { ascending: false });
 
     if (error) throw error;
-
-    if (projects && projects.length > 0) {
-      return res.json({ success: true, projects });
-    }
-
-    // Default mock repos if DB empty
-    const mockProjects = [
-      {
-        id: 'gh1',
-        repo_name: 'gelato-web-platform',
-        description: 'High-speed Next.js e-commerce platform with Stripe integration and dynamic dark mode.',
-        tech_stack: ['Next.js', 'React', 'Tailwind', 'Stripe', 'Supabase'],
-        client_name: 'Gelato International',
-        live_url: 'https://gelato-demo.example.com',
-        last_synced_at: new Date().toISOString(),
-        used_as_idea: true
-      },
-      {
-        id: 'gh2',
-        repo_name: 'aradhya-ai-video-engine',
-        description: 'Neural voice synthesis and lip-sync pipeline for 4K AI video persona shorts.',
-        tech_stack: ['Python', 'Node.js', 'PyTorch', 'FFmpeg', 'OpenRouter'],
-        client_name: 'Converge Internal Flagship',
-        live_url: 'https://aradhya-demo.example.com',
-        last_synced_at: new Date().toISOString(),
-        used_as_idea: true
-      },
-      {
-        id: 'gh3',
-        repo_name: 'kunj-automation-crm-sync',
-        description: 'Custom Node.js webhook engine synchronizing CRM, WhatsApp, and email leads automatically.',
-        tech_stack: ['Node.js', 'Express', 'Redis', 'Webhooks'],
-        client_name: 'Kunj Brand',
-        live_url: null,
-        last_synced_at: new Date().toISOString(),
-        used_as_idea: false
-      }
-    ];
-
-    return res.json({ success: true, projects: mockProjects });
+    return res.json({ success: true, projects: projects || [] });
   } catch (err) {
     console.error('Error fetching github projects:', err.message);
-    return res.status(500).json({ success: false, error: err.message });
+    return res.json({ success: true, projects: [] });
   }
 });
 

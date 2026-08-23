@@ -6,52 +6,86 @@ dotenv.config();
 
 const router = express.Router();
 
-// Helper: Call OpenRouter with fallback models
+// Helper: Call AI (Direct Gemini 3.5 Flash first, then OpenRouter fallbacks)
 async function callAI(systemPrompt, userPrompt, messagesHistory = []) {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  const models = [
-    'meta-llama/llama-3.3-70b-instruct:free',
-    'qwen/qwen-2.5-72b-instruct',
-    'google/gemini-2.0-flash-lite-001',
-    'deepseek/deepseek-chat',
-    'mistralai/mistral-7b-instruct:free'
-  ];
+  const geminiKey = process.env.GEMINI_API_KEY;
+  const openRouterKey = process.env.OPENROUTER_API_KEY;
 
-  const payloadMessages = [
-    { role: 'system', content: systemPrompt },
-    ...messagesHistory,
-    { role: 'user', content: userPrompt }
-  ];
-
-  for (const model of models) {
+  // 1. Primary: Direct Gemini 3.5 Flash API Call (Free & Ultra Fast)
+  if (geminiKey && !geminiKey.includes('placeholder')) {
     try {
-      console.log(`[AI Call] Trying model: ${model}`);
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      console.log('[AI Call] Trying direct Gemini 3.5 Flash API...');
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`;
+      const fullPrompt = `${systemPrompt}\n\nUser Request: ${userPrompt}`;
+      
+      const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://convergedigitals.com',
-          'X-Title': 'Converge LinkedIn Engine',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: model,
-          messages: payloadMessages,
-          temperature: 0.65,
-          max_tokens: 1200,
-        }),
+          contents: [{ parts: [{ text: fullPrompt }] }],
+          generationConfig: { temperature: 0.65, maxOutputTokens: 1200 }
+        })
       });
 
       if (response.ok) {
         const data = await response.json();
-        const content = data.choices?.[0]?.message?.content;
-        if (content) return content;
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) return text;
       } else {
         const errText = await response.text();
-        console.warn(`[AI Warning] Model ${model} returned error:`, errText);
+        console.warn('[Gemini Generator Warning]:', errText.substring(0, 150));
       }
     } catch (err) {
-      console.error(`[AI Error] Failed calling ${model}:`, err.message);
+      console.error('[Gemini Generator Error]:', err.message);
+    }
+  }
+
+  // 2. Secondary: OpenRouter Fallback Chain (Active Free/Valid Slugs)
+  if (openRouterKey && !openRouterKey.includes('placeholder')) {
+    const openRouterModels = [
+      'google/gemini-2.0-flash-lite-001',
+      'deepseek/deepseek-chat',
+      'meta-llama/llama-3.1-8b-instruct:free',
+      'mistralai/mistral-7b-instruct:free',
+      'qwen/qwen-2.5-72b-instruct'
+    ];
+
+    const payloadMessages = [
+      { role: 'system', content: systemPrompt },
+      ...messagesHistory,
+      { role: 'user', content: userPrompt }
+    ];
+
+    for (const model of openRouterModels) {
+      try {
+        console.log(`[AI Call] Trying OpenRouter model: ${model}`);
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openRouterKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://convergedigitals.com',
+            'X-Title': 'Converge LinkedIn Engine',
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: payloadMessages,
+            temperature: 0.65,
+            max_tokens: 1200,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const content = data.choices?.[0]?.message?.content;
+          if (content) return content;
+        } else {
+          const errText = await response.text();
+          console.warn(`[AI Warning] Model ${model} returned error:`, errText.substring(0, 150));
+        }
+      } catch (err) {
+        console.error(`[AI Error] Failed calling ${model}:`, err.message);
+      }
     }
   }
 
@@ -133,24 +167,10 @@ router.get('/ideas', async (req, res) => {
       .limit(5);
 
     if (error) throw error;
-
-    if (ideas && ideas.length > 0) {
-      return res.json({ success: true, ideas });
-    }
-
-    return res.json({
-      success: true,
-      ideas: [
-        { id: '1', pillar, idea_text: 'Why local brands lose international clients in the first 3 seconds.', source: 'github', times_used: 0 },
-        { id: '2', pillar, idea_text: 'Web Development starting at $1,500. 10-day turnaround. Built to drive DMs.', source: 'manual', times_used: 0 },
-        { id: '3', pillar, idea_text: 'How custom AI agents replace $3,000/mo manual lead qualification pipelines.', source: 'crawler_news', times_used: 0 },
-        { id: '4', pillar, idea_text: 'Case Study: Rebuilding Gelato web platform — 140% organic growth.', source: 'client', times_used: 0 },
-        { id: '5', pillar, idea_text: 'Behind the scenes: Aradhya 4K AI video persona walkthrough.', source: 'competitor_research', times_used: 0 },
-      ]
-    });
+    return res.json({ success: true, ideas: ideas || [] });
   } catch (err) {
     console.error('Error fetching ideas:', err.message);
-    return res.status(500).json({ success: false, error: err.message });
+    return res.json({ success: true, ideas: [] });
   }
 });
 
