@@ -79,7 +79,7 @@ The application strictly follows a **Dark, Hacker-Builder Editorial Aesthetic** 
 ## 🚀 Core Module Breakdown
 
 ### 1. Password Gate & Security (`/`)
-- Simple, password-protected team access for internal staff (`converge2026`).
+- Simple, password-protected team access for internal staff (`your_team_password`).
 
 ### 2. Content Generator & AI Refinement Chat (`/generator`)
 - **3 AI Draft Variations:** Powered by OpenRouter / Gemini with 210-character hook obsession & anti-AI slop filters. Includes real-time conversational chat refinement drawer.
@@ -110,7 +110,7 @@ Create a `.env` file inside `server/`:
 
 ```env
 PORT=5000
-TEAM_PASSWORD=converge2026
+TEAM_PASSWORD=your_team_password
 
 # Database
 SUPABASE_URL=https://your-supabase-project.supabase.co
@@ -140,4 +140,4 @@ npm install
 npm run dev
 ```
 
-4. Open **`http://localhost:3000`** and log in with password **`converge2026`**! 🚀
+4. Open **`http://localhost:3000`** and log in with password **`your_team_password`**! 🚀

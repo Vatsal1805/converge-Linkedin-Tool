@@ -91,7 +91,7 @@ export default function App() {
 
                 <div className="flex items-center justify-between p-4 bg-[#0A0A0C] border border-[#23232F] rounded-xl text-sm font-mono">
                   <span>Team Password Gate</span>
-                  <span className="px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 text-xs border border-emerald-500/20">Active (converge2026)</span>
+                  <span className="px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 text-xs border border-emerald-500/20">Active (Configured in .env)</span>
                 </div>
               </div>
             </div>

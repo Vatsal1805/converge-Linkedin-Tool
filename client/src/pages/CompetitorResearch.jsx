@@ -54,7 +54,7 @@ export default function CompetitorResearch({ setActiveTab }) {
     setDiscoveringLive(true);
     setDiscoverMessage(null);
     try {
-      const res = await fetch('/api/competitors/discover-live', { method: 'POST' });
+      const res = await fetch(`${API_BASE}/api/competitors/discover-live`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         setDiscoverMessage(data.message);
@@ -76,7 +76,7 @@ export default function CompetitorResearch({ setActiveTab }) {
     setDiscoveringLive(true);
     setDiscoverMessage(null);
     try {
-      const res = await fetch('/api/leads/discover-live', {
+      const res = await fetch(`${API_BASE}/api/leads/discover-live`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ leadType, niche, location })
@@ -111,7 +111,7 @@ export default function CompetitorResearch({ setActiveTab }) {
   const fetchCompetitors = async () => {
     setLoadingCompetitors(true);
     try {
-      const res = await fetch('/api/competitors');
+      const res = await fetch(`${API_BASE}/api/competitors`);
       const data = await res.json();
       if (data.success) setCompetitors(data.competitors || []);
     } catch (err) {
@@ -125,7 +125,7 @@ export default function CompetitorResearch({ setActiveTab }) {
     if (leadType === 'web_dev') setLoadingWebLeads(true);
     if (leadType === 'aradhya_video') setLoadingAradhyaLeads(true);
     try {
-      const res = await fetch(`/api/leads?lead_type=${leadType}`);
+      const res = await fetch(`${API_BASE}/api/leads?lead_type=${leadType}`);
       const data = await res.json();
       if (data.success) {
         if (leadType === 'web_dev') setWebLeads(data.leads || []);
@@ -143,7 +143,7 @@ export default function CompetitorResearch({ setActiveTab }) {
     const nextActive = currentActive === false ? true : false;
     try {
       setCompetitors(prev => prev.map(c => c.id === id ? { ...c, active: nextActive } : c));
-      await fetch(`/api/competitors/${id}/toggle-active`, {
+      await fetch(`${API_BASE}/api/competitors/${id}/toggle-active`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ active: nextActive }),
@@ -156,7 +156,7 @@ export default function CompetitorResearch({ setActiveTab }) {
   const handleSuggestIdea = async (compName, contentNotes, researchId) => {
     setSuggestingId(researchId);
     try {
-      const res = await fetch('/api/competitors/suggest-idea', {
+      const res = await fetch(`${API_BASE}/api/competitors/suggest-idea`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ competitorName: compName, contentNotes, researchId }),
@@ -176,7 +176,7 @@ export default function CompetitorResearch({ setActiveTab }) {
   const handleGenerateLeadPitch = async (lead) => {
     setGeneratingPitchId(lead.id);
     try {
-      const res = await fetch('/api/leads/generate-pitch', {
+      const res = await fetch(`${API_BASE}/api/leads/generate-pitch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -203,7 +203,7 @@ export default function CompetitorResearch({ setActiveTab }) {
     if (!manualComp.name.trim()) return;
 
     try {
-      const res = await fetch('/api/competitors/manual', {
+      const res = await fetch(`${API_BASE}/api/competitors/manual`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(manualComp),

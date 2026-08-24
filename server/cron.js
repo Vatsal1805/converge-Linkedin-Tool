@@ -333,6 +333,9 @@ export async function runFullAutoCrawlRoutine() {
     const trendRes = await runScheduledCrawl();
     const compRes = await runDailyCompetitorCrawl();
     const leadRes = await runDailyLeadCrawl();
+    const adRes = await runDailyAdTrackingJob();
+    const adAnalysisRes = await runDelayedAdAnalysisJob();
+    const rssRes = await runRedditRssJob();
 
     lastCrawlStatus = `Success (Last run: ${new Date().toLocaleTimeString()})`;
     return {
@@ -341,7 +344,10 @@ export async function runFullAutoCrawlRoutine() {
       trendsAdded: trendRes?.addedCount || 0,
       competitorsAdded: compRes?.added || 0,
       webLeadsAdded: leadRes?.webAdded || 0,
-      aradhyaLeadsAdded: leadRes?.aradhyaAdded || 0
+      aradhyaLeadsAdded: leadRes?.aradhyaAdded || 0,
+      adsTracked: adRes?.trackedCount || 0,
+      adsAnalyzed: adAnalysisRes?.analyzedCount || 0,
+      rssSignalsAdded: rssRes?.addedCount || 0
     };
   } catch (err) {
     console.error('[Cron Routine Error]:', err.message);

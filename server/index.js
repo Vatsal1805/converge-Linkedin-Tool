@@ -47,7 +47,7 @@ app.get('/api/health', (req, res) => {
 // Team Login Password Auth
 app.post('/api/auth/login', (req, res) => {
   const { password } = req.body;
-  const expectedPassword = process.env.TEAM_PASSWORD || 'converge2026';
+  const expectedPassword = process.env.TEAM_PASSWORD;
 
   if (!password) {
     return res.status(400).json({ success: false, message: 'Password is required' });

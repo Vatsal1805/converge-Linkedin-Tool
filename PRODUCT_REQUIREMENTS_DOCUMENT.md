@@ -134,7 +134,7 @@ To ensure 100% clarity on system design, every technology, AI model, database st
 
 ### 4.1 Module 1: Password Gate & Security (`/`)
 - **Requirement:** Password-protected single-screen gate preventing unauthorized public access.
-- **Authentication Mechanism:** Team password checked against environment variable `TEAM_PASSWORD` (`converge2026`).
+- **Authentication Mechanism:** Team password checked against environment variable `TEAM_PASSWORD` (`your_team_password`).
 - **Session Persistence:** Saves authenticated session token in `localStorage`.
 
 ### 4.2 Module 2: Executive Dashboard & Live Audit (`/dashboard`)
@@ -280,7 +280,7 @@ All private credentials must be stored exclusively inside `server/.env` (which i
 
 ```env
 PORT=5000
-TEAM_PASSWORD=converge2026
+TEAM_PASSWORD=your_team_password
 
 # Database Credentials
 SUPABASE_URL=https://aurszzuoixdhaywsmwjy.supabase.co
@@ -319,7 +319,7 @@ To prevent Render free tier web services from sleeping after 15 minutes of inact
 
 ## 8. Verification & Acceptance Criteria
 
-1. **Authentication:** Only users entering `converge2026` can access dashboard features.
+1. **Authentication:** Only users entering `your_team_password` can access dashboard features.
 2. **Post Generation:** Generates 3 unique draft variations per pillar with <210-character hooks and zero banned AI jargon words.
 3. **Grounded Lead Discovery:** 100% of discovered business leads correspond to active, real businesses found on Google Maps.
 4. **Data Hygiene:** Rejects permanently closed businesses, rejects 50+ location corporate conglomerates, and formats phone numbers as single-quoted plain text (`'+971-4-330-0441'`).

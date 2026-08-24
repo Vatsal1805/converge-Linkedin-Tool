@@ -66,7 +66,7 @@ export default function Generator({ setActiveTab }) {
     setCrawling(true);
     setCrawlMessage(null);
     try {
-      const res = await fetch('/api/crawler/run-now');
+      const res = await fetch(`${API_BASE}/api/crawler/run-now`);
       const data = await res.json();
       if (data.success) {
         setCrawlMessage(data.message);
@@ -98,7 +98,7 @@ export default function Generator({ setActiveTab }) {
     setDrafts(null);
     setSelectedIdea(null);
     try {
-      const res = await fetch(`/api/ideas?pillar=${pillar}`);
+      const res = await fetch(`${API_BASE}/api/ideas?pillar=${pillar}`);
       const data = await res.json();
       if (data.success && data.ideas) {
         setIdeas(data.ideas);
@@ -125,7 +125,7 @@ export default function Generator({ setActiveTab }) {
     setSelectedDraftIndex(null);
 
     try {
-      const res = await fetch('/api/generate', {
+      const res = await fetch(`${API_BASE}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -157,7 +157,7 @@ export default function Generator({ setActiveTab }) {
   const handleSavePost = async (draftText, index) => {
     setSavingPost(true);
     try {
-      const res = await fetch('/api/save-post', {
+      const res = await fetch(`${API_BASE}/api/save-post`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -210,7 +210,7 @@ export default function Generator({ setActiveTab }) {
 
     try {
       const currentDraftText = drafts[selectedDraftIndex];
-      const res = await fetch('/api/refine-chat', {
+      const res = await fetch(`${API_BASE}/api/refine-chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -45,7 +45,7 @@ export default function Calendar({ setActiveTab }) {
   const fetchCalendarPosts = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/calendar');
+      const res = await fetch(`${API_BASE}/api/calendar`);
       const data = await res.json();
       if (data.success) {
         setPosts(data.posts || []);
@@ -69,7 +69,7 @@ export default function Calendar({ setActiveTab }) {
     if (!selectedPost) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/posts/${selectedPost.id}`, {
+      const res = await fetch(`${API_BASE}/api/posts/${selectedPost.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -95,7 +95,7 @@ export default function Calendar({ setActiveTab }) {
   const handleDeletePost = async (id) => {
     if (!window.confirm('Are you sure you want to delete this post draft?')) return;
     try {
-      const res = await fetch(`/api/posts/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE}/api/posts/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         fetchCalendarPosts();

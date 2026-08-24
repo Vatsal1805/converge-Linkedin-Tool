@@ -12,6 +12,8 @@ import {
   Lock
 } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export default function GitHubSync() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +27,7 @@ export default function GitHubSync() {
   const fetchProjects = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/github/projects');
+      const res = await fetch(`${API_BASE}/api/github/projects`);
       const data = await res.json();
       if (data.success) {
         setProjects(data.projects || []);
@@ -41,7 +43,7 @@ export default function GitHubSync() {
     setSyncing(true);
     setSyncMessage(null);
     try {
-      const res = await fetch('/api/github/sync', { method: 'POST' });
+      const res = await fetch(`${API_BASE}/api/github/sync`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         setSyncMessage(data.message);

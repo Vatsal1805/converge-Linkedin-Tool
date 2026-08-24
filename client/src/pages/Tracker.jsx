@@ -14,6 +14,8 @@ import {
   Info
 } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export default function Tracker() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +42,7 @@ export default function Tracker() {
     setLoading(true);
     try {
       // Fetch posted posts
-      const res = await fetch('/api/tracker');
+      const res = await fetch(`${API_BASE}/api/tracker`);
       const data = await res.json();
 
       if (data.success && data.posts) {
@@ -63,7 +65,7 @@ export default function Tracker() {
       }
 
       // Fetch Insights
-      const insightsRes = await fetch('/api/tracker/insights');
+      const insightsRes = await fetch(`${API_BASE}/api/tracker/insights`);
       const insightsData = await insightsRes.json();
       if (insightsData.success) {
         setInsights(insightsData);
@@ -91,7 +93,7 @@ export default function Tracker() {
 
     setSavingId(postId);
     try {
-      const res = await fetch('/api/metrics', {
+      const res = await fetch(`${API_BASE}/api/metrics`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -105,7 +107,7 @@ export default function Tracker() {
         setSavedSuccessId(postId);
         setTimeout(() => setSavedSuccessId(null), 2500);
         // Refresh insights
-        const insightsRes = await fetch('/api/tracker/insights');
+        const insightsRes = await fetch(`${API_BASE}/api/tracker/insights`);
         const insightsData = await insightsRes.json();
         if (insightsData.success) setInsights(insightsData);
       }

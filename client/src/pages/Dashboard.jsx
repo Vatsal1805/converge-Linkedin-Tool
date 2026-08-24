@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Calendar, TrendingUp, Github, Eye, ArrowUpRight, CheckCircle2, Clock, Database, RefreshCw, Zap, ShieldCheck } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export default function Dashboard({ setActiveTab }) {
   const [cronStatus, setCronStatus] = useState(null);
   const [loadingCron, setLoadingCron] = useState(true);
@@ -14,7 +16,7 @@ export default function Dashboard({ setActiveTab }) {
   const fetchCronStatus = async () => {
     setLoadingCron(true);
     try {
-      const res = await fetch('/api/cron/status');
+      const res = await fetch(`${API_BASE}/api/cron/status`);
       const data = await res.json();
       if (data.success) setCronStatus(data);
     } catch (err) {
@@ -28,7 +30,7 @@ export default function Dashboard({ setActiveTab }) {
     setRunningRoutine(true);
     setRoutineMessage(null);
     try {
-      const res = await fetch('/api/cron/run-full', { method: 'POST' });
+      const res = await fetch(`${API_BASE}/api/cron/run-full`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         setRoutineMessage(`Success! Crawled trends, competitors & leads. Supabase updated.`);
