@@ -201,39 +201,26 @@ router.get('/cron/status', async (req, res) => {
   }
 });
 
-// 3. Trigger Full Auto Crawl Routine route: POST /api/cron/run-full
-router.post('/cron/run-full', async (req, res) => {
-  try {
-    const { runFullAutoCrawlRoutine } = await import('../cron.js');
-    const result = await runFullAutoCrawlRoutine();
-    return res.status(200).json({
-      success: true,
-      time: new Date().toISOString(),
-      leads: (result.webLeadsAdded || 0) + (result.aradhyaLeadsAdded || 0),
-      competitors: result.competitorsAdded || 0,
-      ads: result.adsTracked || 0
-    });
-  } catch (err) {
-    console.error('Error running full auto crawl routine:', err.message);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
+// 3. Trigger Full Auto Crawl Routine route: POST & GET /api/cron/run-full
+const handleCronTrigger = async (req, res) => {
+  // Respond immediately with ultra-tiny 25-byte JSON response
+  res.status(200).json({ ok: true, status: 'triggered' });
 
-router.get('/cron/run-full', async (req, res) => {
+  // Execute full crawl routine asynchronously in background
   try {
     const { runFullAutoCrawlRoutine } = await import('../cron.js');
-    const result = await runFullAutoCrawlRoutine();
-    return res.status(200).json({
-      success: true,
-      time: new Date().toISOString(),
-      leads: (result.webLeadsAdded || 0) + (result.aradhyaLeadsAdded || 0),
-      competitors: result.competitorsAdded || 0,
-      ads: result.adsTracked || 0
+    console.log('[Cron Webhook] Triggered via cron-job.org. Executing crawl routine in background...');
+    runFullAutoCrawlRoutine().then(res => {
+      console.log('[Cron Webhook] Background crawl routine finished successfully:', res);
+    }).catch(err => {
+      console.error('[Cron Webhook] Error in background crawl routine:', err.message);
     });
   } catch (err) {
-    console.error('Error running full auto crawl routine:', err.message);
-    return res.status(500).json({ success: false, error: err.message });
+    console.error('[Cron Webhook Import Error]:', err.message);
   }
-});
+};
+
+router.post('/cron/run-full', handleCronTrigger);
+router.get('/cron/run-full', handleCronTrigger);
 
 export default router;
