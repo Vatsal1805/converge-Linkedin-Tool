@@ -8,6 +8,7 @@ import trackerRoutes from './routes/tracker.js';
 import competitorRoutes from './routes/competitors.js';
 import githubRoutes from './routes/github.js';
 import crawlerRoutes from './routes/crawler.js';
+import verificationRoutes from './routes/verification.js';
 import { initScheduledJobs } from './cron.js';
 
 dotenv.config();
@@ -25,6 +26,7 @@ app.use('/api', trackerRoutes);
 app.use('/api', competitorRoutes);
 app.use('/api', githubRoutes);
 app.use('/api', crawlerRoutes);
+app.use('/api/verification', verificationRoutes);
 
 // Initialize Automated Background Cron Jobs
 initScheduledJobs();

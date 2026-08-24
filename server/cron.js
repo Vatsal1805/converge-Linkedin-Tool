@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { runScheduledCrawl } from './routes/crawler.js';
 import { supabase } from './config/supabase.js';
 import { syncLeadToGoogleSheet } from './config/googleSheets.js';
+import { verifyLead } from './services/leadVerifier.js';
 
 let lastCrawlTime = null;
 let lastCrawlStatus = 'Idle (Scheduled 8am, 2pm, 8pm)';
@@ -202,11 +203,12 @@ Return PURE JSON ONLY: {"leads": [{"business_name": "...", "niche": "${selectedW
             .eq('business_name', item.business_name)
             .maybeSingle();
 
+          let insertedRecord = null;
           let error = null;
 
           if (!existingLead) {
             // 2. Insert new lead into Supabase
-            const { error: insErr } = await supabase
+            const { data: inserted, error: insErr } = await supabase
               .from('leads')
               .insert([
                 {
@@ -220,14 +222,18 @@ Return PURE JSON ONLY: {"leads": [{"business_name": "...", "niche": "${selectedW
                   ad_status: item.website_url ? 'Flawed Website Redesign Target' : 'No Active Website',
                   status: 'new'
                 }
-              ]);
+              ])
+              .select()
+              .single();
             error = insErr;
+            insertedRecord = inserted;
           }
 
-          if (!error) {
+          if (!error && (insertedRecord || existingLead)) {
             webAdded++;
-            syncLeadToGoogleSheet(leadObj).catch(e => console.warn(e.message));
-          } else {
+            const leadToVerify = insertedRecord || { ...leadObj, id: existingLead.id };
+            verifyLead(leadToVerify).catch(e => console.warn('[Verification Error]:', e.message));
+          } else if (error) {
             console.warn(`[Cron Job] Supabase lead insert error "${item.business_name}":`, error.message);
           }
         }
@@ -273,11 +279,12 @@ Return PURE JSON ONLY: {"leads": [{"business_name": "...", "niche": "${selectedW
             .eq('business_name', item.business_name)
             .maybeSingle();
 
+          let insertedRecord = null;
           let error = null;
 
           if (!existingLead) {
             // 2. Insert new lead into Supabase
-            const { error: insErr } = await supabase
+            const { data: inserted, error: insErr } = await supabase
               .from('leads')
               .insert([
                 {
@@ -291,14 +298,18 @@ Return PURE JSON ONLY: {"leads": [{"business_name": "...", "niche": "${selectedW
                   ad_status: 'Static Meta Image Ads Active',
                   status: 'new'
                 }
-              ]);
+              ])
+              .select()
+              .single();
             error = insErr;
+            insertedRecord = inserted;
           }
 
-          if (!error) {
+          if (!error && (insertedRecord || existingLead)) {
             aradhyaAdded++;
-            syncLeadToGoogleSheet(leadObj).catch(e => console.warn(e.message));
-          } else {
+            const leadToVerify = insertedRecord || { ...leadObj, id: existingLead.id };
+            verifyLead(leadToVerify).catch(e => console.warn('[Verification Error]:', e.message));
+          } else if (error) {
             console.warn(`[Cron Job] Supabase Aradhya lead insert error "${item.business_name}":`, error.message);
           }
         }
@@ -368,27 +379,11 @@ export async function getCronStatusAudit() {
   }
 }
 
-// 3. Weekly 7-Day Supabase Database Cleanup Routine
+// 3. Weekly 7-Day Supabase Database Cleanup Routine (PAUSED FOR 10-20 DAY TESTING WINDOW)
 export async function runWeeklyDatabasePurge() {
-  console.log('[Cron Job] Running Weekly 7-Day Lead Database Cleanup Routine...');
-  try {
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: deleted, error } = await supabase
-      .from('leads')
-      .delete()
-      .lt('created_at', sevenDaysAgo)
-      .select();
-
-    if (!error) {
-      console.log(`[Cron Job] Completed weekly DB purge. Deleted ${(deleted || []).length} leads older than 7 days.`);
-      return { purgedCount: (deleted || []).length };
-    }
-  } catch (err) {
-    console.error('[Cron DB Purge Error]:', err.message);
-  }
-  return { purgedCount: 0 };
+  console.log('[Cron Job] Weekly 7-Day Lead Purge is PAUSED during current testing window (0 leads deleted).');
+  return { purgedCount: 0, status: 'paused_for_testing' };
 }
-
 // Schedule Cron Jobs: Runs 3x Daily (8:00 AM, 2:00 PM, 8:00 PM) + Sunday Night DB Purge
 export function initScheduledJobs() {
   console.log('[Cron Engine] Initializing automated background schedules (8am, 2pm, 8pm)...');

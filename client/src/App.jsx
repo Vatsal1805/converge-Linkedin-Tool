@@ -8,6 +8,7 @@ import Calendar from './pages/Calendar';
 import Tracker from './pages/Tracker';
 import CompetitorResearch from './pages/CompetitorResearch';
 import GitHubSync from './pages/GitHubSync';
+import Verification from './pages/Verification';
 import { Sparkles, CalendarDays, BarChart3, Eye, Github, Settings as SettingsIcon } from 'lucide-react';
 
 export default function App() {
@@ -49,6 +50,8 @@ export default function App() {
           {activeTab === 'tracker' && <Tracker />}
 
           {activeTab === 'competitors' && <CompetitorResearch setActiveTab={setActiveTab} />}
+
+          {activeTab === 'verification' && <Verification />}
 
           {activeTab === 'github' && <GitHubSync />}
 

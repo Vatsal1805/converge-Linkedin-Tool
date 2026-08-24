@@ -6,6 +6,7 @@ import {
   BarChart3, 
   Eye, 
   Github, 
+  ShieldCheck,
   Settings, 
   LogOut,
   Zap
@@ -18,6 +19,7 @@ export default function Sidebar({ activeTab, setActiveTab, onLogout }) {
     { id: 'calendar', label: 'Calendar', icon: CalendarDays },
     { id: 'tracker', label: 'Tracker', icon: BarChart3 },
     { id: 'competitors', label: 'Competitor Research', icon: Eye },
+    { id: 'verification', label: 'Verification', icon: ShieldCheck, badge: 'Audit' },
     { id: 'github', label: 'GitHub Sync', icon: Github },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];

@@ -1,22 +1,52 @@
-# 🚀 Converge LinkedIn Content & Sales Engine
+# 🚀 Converge LinkedIn Content & Lead Engine (v2.0)
 
-> **Internal B2B Content Engine & Lead Intelligence Hub** built for **Converge Digitals**.  
-> Designed to automate consistent, high-converting LinkedIn authority, offer, AI showcase, and case study posts without manual brainstorming or account ban risks.
+> **Internal B2B Content Engine & Real-Time Lead Intelligence Hub** built for **Converge Digitals**.  
+> Designed to automate consistent, high-converting LinkedIn authority, offer, AI showcase, and case study posts, while autonomously discovering grounded B2B sales leads and archiving them live to Google Sheets.
 
 ---
 
 ## 📸 Overview & Key Capabilities
 
-The **Converge LinkedIn Engine** is an end-to-end full-stack web application that combines **AI copywriting**, **autonomous market research**, **ad transparency intelligence**, and **B2B lead discovery**.
+The **Converge LinkedIn Engine** is an end-to-end full-stack web application that combines **AI copywriting**, **autonomous market research**, **ad transparency intelligence**, **grounded B2B lead discovery**, and **real-time Google Sheets archiving**.
 
-- 🎯 **5-Day Fixed Pillar Rotation:** Aligned with LinkedIn's algorithm for maximum topical distribution.
+- 🎯 **5-Day Fixed Pillar Rotation:** Mon=Authority, Tue=Offer, Wed=Aradhya AI, Thu=Proof, Fri=Offer/Personal (aligned with LinkedIn's algorithm).
 - 🪝 **210-Character Hook Engineering:** Specifically optimizes lines 1–2 (the first ~210 characters) to maximize the `...see more` click-through rate.
 - 🛡️ **Strict Anti-AI Slop Filter:** Hard-bans generic AI jargon (`delve`, `game-changer`, `unleash`, `harness`, `secret sauce`) and emoji bullet point spam.
-- 💬 **Conversational AI Refinement Drawer:** Allows real-time natural language prompts (*"make it 20% shorter"*, *"remove pricing"*) to edit drafts on the fly.
-- 📊 **Performance Tracker & Strategy Engine:** Tracks impressions, reactions, comments, and DMs with 3 interactive SVG charts and automated AI recommendations.
-- 🕵️ **3-Tab Competitor & Lead Intelligence Hub:** Crawling public ad transparency libraries (Meta, LinkedIn, Google Ads) and finding pre-qualified business leads with **Google Maps URLs**, **Phone numbers**, and **Contact Emails**.
-- 🐙 **Safe GitHub Org Sync:** Crawls shipped client repositories and AI builds (metadata only, zero code exposure) to generate authentic **Proof** case studies.
-- ⚡ **Always-On Background Crawlers (`node-cron`):** Runs 3x daily (8am, 2pm, 8pm) to crawl Reddit founder signals (`r/startups`, `r/SaaS`, `r/webdev`), reframing trends into Converge's 5 core services with strict database deduplication.
+- 📍 **Grounded Google Maps Search Engine:** Uses direct Google Search Grounding (`tools: [{ google_search: {} }]`) to discover 100% real, operational businesses.
+- 🛑 **Operational & SMB Size Guard:** Automatically excludes permanently closed businesses and massive 50+ location corporate conglomerates, targeting high-converting boutique owners (5–30 team size).
+- 📊 **Real-Time Google Sheets Lead Archiver:** Automatically syncs verified leads to your live Google Sheet with single-quoted phone formatting (`'+971-4-330-0441'`) to eliminate math subtraction errors.
+- 🗑️ **7-Day Automatic Database Purge:** Automatically cleans up Supabase storage every Sunday night while Google Sheets preserves all historical leads permanently.
+- 💰 **100% Free AI Architecture ($0.00 Cost):** Powered by direct Google Gemini 3.5 Flash and free OpenRouter fallbacks (`google/gemini-2.0-flash-lite-001`, `meta-llama/llama-3.1-8b-instruct:free`).
+
+---
+
+## 🏗️ Repository Directory Architecture
+
+```text
+Linkedin-tool/ (Repository Root)
+├── client/                     <-- React 18 + Vite + Tailwind CSS Frontend
+│   ├── src/
+│   │   ├── components/         <-- Header, Sidebar, PasswordGate
+│   │   ├── pages/              <-- Dashboard, Generator, Calendar, Tracker, CompetitorResearch, GitHubSync
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   ├── index.html
+│   ├── package.json
+│   └── vite.config.js
+├── server/                     <-- Node.js + Express + Supabase Backend
+│   ├── config/
+│   │   ├── googleSheets.js     <-- Real-time Google Sheets & Webhook Sync Engine
+│   │   └── supabase.js         <-- Supabase Postgres Client Initializer
+│   ├── db/
+│   │   ├── schema.sql          <-- Full PostgreSQL Migration Schema & Enums
+│   │   └── seed.sql            <-- 40 Starter Content Ideas Across 4 Pillars
+│   ├── routes/                 <-- Generator, Competitors, Calendar, Tracker, GitHub, Crawler
+│   ├── cron.js                 <-- Node-Cron Daily Job Engine (8am, 2pm, 8pm & Sunday Purge)
+│   ├── index.js                <-- Express Server Entry Point
+│   └── package.json
+├── PRODUCT_REQUIREMENTS_DOCUMENT.md  <-- Complete v2.0 Production PRD
+└── README.md                   <-- System Documentation
+```
 
 ---
 
@@ -40,11 +70,11 @@ The application strictly follows a **Dark, Hacker-Builder Editorial Aesthetic** 
 
 ---
 
-## 🚀 Module-by-Module Breakdown
+## 🚀 Core Module Breakdown
 
-### 1. Password Gate & Security
+### 1. Password Gate & Security (`/`)
 - Simple, password-protected team access for internal staff (2–5 people).
-- Hardcoded hashed check against `TEAM_PASSWORD` environment variable.
+- Hardcoded hashed check against `TEAM_PASSWORD` environment variable (`converge2026`).
 
 ### 2. Content Generator & AI Refinement Chat (`/generator`)
 - **Idea Cards:** Rotates 5 cards per pillar tagged by source (`From GitHub`, `Trending News`, `Competitor Ad`, `Client Result`, `Idea Bank`).
@@ -61,118 +91,78 @@ The application strictly follows a **Dark, Hacker-Builder Editorial Aesthetic** 
 - Status Badges: `Draft` (gray), `Ready` (amber), `Posted` (emerald).
 - Interactive detail modal allowing team members to edit copy, switch selected draft variations, attach post URLs, and mark posts as live.
 
-### 4. Performance Tracker (`/tracker`)
+### 4. Performance Tracker & Analytics (`/tracker`)
 - Editable posted metrics table: Impressions, Reactions, Comments, DMs Received, Lead Type (*International*, *Local*, *Unclear*), and Notes.
 - **3 Interactive SVG Analytics Charts:**
   1. Average DMs per Content Pillar
   2. Average DMs per Day of Week
   3. 8-Week DM Conversion Trend
-- **Automated AI Strategy Engine:** Evaluates performance data and outputs actionable recommendations (e.g., *"Thursday Proof posts generate 2.4x more international DMs. Increase case study frequency."*).
+- **Automated AI Strategy Engine:** Evaluates performance data and outputs actionable recommendations.
 
-### 5. 3-Tab Competitor & Lead Intelligence (`/competitors`)
-- **Tab 1: Competitor Ad Libraries:** Discovers active agency competitors in US/Dubai/UK markets and extracts active ad hooks from Meta Ad Library, LinkedIn Ad Library, and Google Ads Transparency. Includes a 1-click *"Suggest Converge Post Idea"* converter.
-- **Tab 2: Web Dev & Branding Leads:** Rotates weekly business niches (*Dental Clinics*, *Law Firms*, *Real Estate*). Filters for 3.0–4.2 star Google ratings & slow/outdated mobile sites. Includes **Google Maps links**, **Phone numbers**, and **Emails**.
-- **Tab 3: Aradhya AI Video Leads (Visual/D2C Only):** Dedicated strictly for video-suitable niches (*D2C Skincare*, *Luxury Real Estate*, *MedSpas*, *EdTech*). Filters for brands running static Meta image ads or lacking video assets. Includes complete contact verification links.
+### 5. Grounded Competitor & Lead Intelligence (`/competitors`)
+- **Tab 1: Competitor Ad Libraries:** Discovers active agency competitors in US/Dubai/UK markets and extracts active ad hooks from Meta Ad Library, LinkedIn Ad Library, and Google Ads Transparency.
+- **Tab 2: Web Dev & Branding Leads:**
+  - **Scenario 1 (No Website Target):** Active Google Business profile (3.0-4.8★) with NO website listed.
+  - **Scenario 2 (Flawed Website Target):** Verified website with 2–3 concrete pitchable technical flaws (slow mobile load speed >3.5s, non-responsive desktop-first UI, missing WhatsApp CTA).
+- **Tab 3: Aradhya AI Video Leads (D2C & Visual Brands):** Target independent D2C skincare, medspas, and luxury real estate running static image Meta ads or lacking 4K video spokespersons.
+- **Strict Anti-Hallucination Guard:** Hard bans synthetic domain generation (`www.businessname.com`) and guessed emails (`info@domain.com`). Unlisted emails default to `'Unlisted'`.
+- **Operational & SMB Size Filters:** Automatically rejects permanently/temporarily closed businesses and 50+ location corporate conglomerates, focusing exclusively on SMB owners (5–30 team size).
 
-### 6. GitHub Org Sync (`/github`)
+### 6. Real-Time Google Sheets Lead Archiver
+- Automatically pushes discovered leads to your live Google Sheet (`17MyAQ2u4fJeT9U_VKV4SndeqxjJ0aYH1F86VequANAQ`) via **Google Apps Script Webhook** or **Google Service Account**.
+- **Universal Phone Sanitizer:** Formats phone numbers as single-quoted plain text (`'+971-4-330-0441'`) to eliminate math subtraction errors (`-410`) in Google Sheets.
+
+### 7. GitHub Org Sync (`/github`)
 - Read-only integration using GitHub Personal Access Token (`GITHUB_PAT`).
 - Crawls repo metadata: repository names, tech stack arrays (`[Next.js, Tailwind, Supabase, Stripe]`), README summaries, and live demo links.
 - 🛡️ **Zero Code Risk:** Never reads, downloads, or exposes proprietary source code or secrets — metadata only!
-- Auto-generates matching **Proof** or **Aradhya** case study ideas saved directly to `idea_bank`.
 
-### 7. Always-On Background Crawlers (`server/cron.js`)
-- Runs automatically via `node-cron` **3 times a day** (8:00 AM, 2:00 PM, 8:00 PM).
-- **Service Mapping Engine:** Maps every crawled item to Converge's 5 core services (*Web Dev*, *Branding*, *AI Automation*, *Social Media*, *SEO*).
-- **Founder Signal Crawling:** Crawls `r/startups`, `r/SaaS`, `r/webdev` for founder launch pain points and reframes them into Converge sales angles.
-- **Strict Database Deduplication:** Uses Supabase `onConflict: 'business_name'` and `onConflict: 'idea_text'` so duplicate cards or leads are never created.
+### 8. Always-On Background Crawlers & 7-Day Purge (`server/cron.js`)
+- Runs automatically via `node-cron` **3 times a day** (8:00 AM, 2:00 PM, 8:00 PM) for automated trend, competitor, and lead discovery.
+- **Sunday 11:59 PM Auto Purge:** Automatically deletes leads older than 7 days from Supabase (`DELETE FROM leads WHERE created_at < NOW() - INTERVAL '7 days';`) to keep Supabase storage lightweight while Google Sheets preserves historical data permanently.
 
 ---
 
-## 🛠️ Database Schema (`server/db/schema.sql`)
+## ⚡ Quick Start & Setup
 
-Created in **Supabase (PostgreSQL)** with 10 tables:
+### Prerequisites
+- Node.js v18+ installed
+- Supabase account (Free Tier)
+- Google AI Studio Gemini API key (Free Tier)
 
-```sql
-1. posts (id, pillar, day_slot, idea_text, draft_1, draft_2, draft_3, selected_draft, status, post_url)
-2. clients (id, name, industry, project_type, results_summary)
-3. competitors (id, name [UNIQUE], website_url, discovered_via, industry_tag, notes, active)
-4. competitor_research (id, competitor_id, source, content_notes, date_added)
-5. github_projects (id, repo_name [UNIQUE], description, tech_stack, client_name, live_url, used_as_idea)
-6. idea_bank (id, pillar, idea_text [UNIQUE], source, times_used, last_used_date)
-7. metrics (id, post_id, impressions, reactions, comments, dms_received, client_type_of_dm, notes)
-8. draft_chats (id, post_id, role, message, created_at)
-9. leads (id, lead_type, business_name [UNIQUE], niche, city_state, rating, website_url, google_map_url, phone_number, email, qualification_reason, ad_status, status)
-```
-
----
-
-## 🔑 Environment Setup (`.env`)
-
-Create a `.env` file in `server/` with the following variables:
+### 1. Environment Setup
+Create a `.env` file inside the `server/` directory:
 
 ```env
 PORT=5000
 TEAM_PASSWORD=converge2026
 
-# Supabase Credentials
-SUPABASE_URL=https://your-project-id.supabase.co
+# Database
+SUPABASE_URL=https://your-supabase-project.supabase.co
 SUPABASE_ANON_KEY=your-supabase-anon-key
 
-# AI API Keys
-OPENROUTER_API_KEY=sk-or-v1-your-openrouter-key
-GEMINI_API_KEY=AIzaSy-your-gemini-key
+# AI Model Keys (100% Free Stack)
+GEMINI_API_KEY=your-google-ai-studio-key
+OPENROUTER_API_KEY=your-openrouter-key
+GITHUB_PAT=your-github-personal-access-token
 
-# GitHub Access Token (Read-Only)
-GITHUB_PAT=ghp_your_github_token
+# Google Sheets Sync
+GOOGLE_SHEET_ID=17MyAQ2u4fJeT9U_VKV4SndeqxjJ0aYH1F86VequANAQ
+GOOGLE_SHEETS_WEBHOOK_URL=https://script.google.com/macros/s/your-apps-script-webhook-id/exec
 ```
 
----
-
-## 💻 Local Running Instructions
-
-### 1. Install Dependencies
-```bash
-# Backend
-cd server
-npm install
-
-# Frontend
-cd ../client
-npm install
-```
-
-### 2. Database Migration
-Paste the contents of `server/db/schema.sql` and `server/db/seed.sql` into your **Supabase SQL Editor** and click **Run**.
-
-### 3. Start Development Servers
-
-**Terminal 1 (Backend Express Server):**
+### 2. Install & Start Backend
 ```bash
 cd server
+npm install
 npm start
 ```
-*(Runs Express server & cron scheduler on http://localhost:5000)*
 
-**Terminal 2 (Frontend React App):**
+### 3. Install & Start Frontend
 ```bash
 cd client
+npm install
 npm run dev
 ```
-*(Runs Vite dev server on http://localhost:3000)*
 
----
-
-## 🤝 Team Workflow Guidelines
-
-1. **Daily Morning Routine (5 Mins):**
-   - Open `http://localhost:3000/generator`.
-   - The app auto-selects today's pillar. Select an idea card (or click `⚡ Crawl Trends & Founder Signals`).
-   - Click **Generate 3 Drafts**, select your favorite version, refine via AI Chat if needed, and click **Save to Calendar**.
-2. **Weekly Calendar Review:**
-   - Open `/calendar` to verify that Mon–Fri slots have `Ready` posts.
-3. **Friday Performance Logging:**
-   - Open `/tracker` to log posted impressions and DMs from the past week to trigger AI strategy recommendations.
-
----
-
-© 2026 **Converge Digitals**. Built with React, Tailwind CSS, Express, Supabase, OpenRouter & Google Gemini 3.5 Flash.
+4. Open **`http://localhost:3000`** and log in with password **`converge2026`**! 🚀

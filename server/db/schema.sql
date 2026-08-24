@@ -135,3 +135,27 @@ CREATE INDEX IF NOT EXISTS idx_posts_pillar ON posts(pillar);
 CREATE INDEX IF NOT EXISTS idx_idea_bank_pillar ON idea_bank(pillar);
 CREATE INDEX IF NOT EXISTS idx_competitor_research_comp ON competitor_research(competitor_id);
 CREATE INDEX IF NOT EXISTS idx_leads_type ON leads(lead_type);
+
+-- 11. Lead Verification Pipeline Schema Additions
+CREATE TYPE verification_status_enum AS ENUM ('pending', 'passed', 'partial', 'failed');
+
+ALTER TABLE leads 
+ADD COLUMN IF NOT EXISTS verification_status verification_status_enum DEFAULT 'pending',
+ADD COLUMN IF NOT EXISTS verification_details JSONB DEFAULT '{}'::jsonb,
+ADD COLUMN IF NOT EXISTS places_api_match BOOLEAN,
+ADD COLUMN IF NOT EXISTS phone_valid BOOLEAN,
+ADD COLUMN IF NOT EXISTS website_reachable BOOLEAN,
+ADD COLUMN IF NOT EXISTS no_website_claim_verified BOOLEAN,
+ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP WITH TIME ZONE;
+
+-- 12. Verification Stats Table (Survives 7-Day Purge)
+CREATE TABLE IF NOT EXISTS verification_stats (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    date DATE NOT NULL UNIQUE,
+    total_verified INT DEFAULT 0,
+    passed_count INT DEFAULT 0,
+    partial_count INT DEFAULT 0,
+    failed_count INT DEFAULT 0,
+    check_failures JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);

@@ -3,6 +3,7 @@ import { supabase } from '../config/supabase.js';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import { syncLeadToGoogleSheet } from '../config/googleSheets.js';
+import { verifyLead } from '../services/leadVerifier.js';
 
 dotenv.config();
 
@@ -459,7 +460,7 @@ Return PURE JSON ONLY:
         };
 
         savedLeads.push(fullLeadObj);
-        syncLeadToGoogleSheet(fullLeadObj).catch(e => console.warn(e.message));
+        verifyLead(fullLeadObj).catch(e => console.warn('[Lead Verification Error]:', e.message));
       } catch (dbErr) {
         console.warn('Could not insert lead to Supabase:', dbErr.message);
       }
