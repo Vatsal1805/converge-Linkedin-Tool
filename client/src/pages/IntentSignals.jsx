@@ -13,6 +13,8 @@ import {
   Building2
 } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export default function IntentSignals() {
   const [signals, setSignals] = useState([]);
   const [serviceFilter, setServiceFilter] = useState('all');
@@ -28,7 +30,7 @@ export default function IntentSignals() {
   const fetchSignals = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/intent-signals/list?service_area=${serviceFilter}&classification=${classFilter}`);
+      const res = await fetch(`${API_BASE}/api/intent-signals/list?service_area=${serviceFilter}&classification=${classFilter}`);
       const data = await res.json();
       if (data.success) {
         setSignals(data.signals || []);
@@ -42,7 +44,7 @@ export default function IntentSignals() {
 
   const handleUpdateStatus = async (signalId, status) => {
     try {
-      const res = await fetch('http://localhost:5000/api/intent-signals/update-status', {
+      const res = await fetch(`${API_BASE}/api/intent-signals/update-status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ signalId, status })
@@ -61,7 +63,7 @@ export default function IntentSignals() {
   const handleTriggerMining = async () => {
     setMining(true);
     try {
-      const res = await fetch('http://localhost:5000/api/intent-signals/trigger-crawl', { method: 'POST' });
+      const res = await fetch(`${API_BASE}/api/intent-signals/trigger-crawl`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         setNotification('Reddit RSS & Grounded Intent Search completed!');

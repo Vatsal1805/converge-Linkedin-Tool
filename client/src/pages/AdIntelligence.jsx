@@ -12,6 +12,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export default function AdIntelligence({ setActiveTab }) {
   const [groupedAds, setGroupedAds] = useState([]);
   const [totalTracked, setTotalTracked] = useState(0);
@@ -26,7 +28,7 @@ export default function AdIntelligence({ setActiveTab }) {
   const fetchAds = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/ad-intelligence/ads');
+      const res = await fetch(`${API_BASE}/api/ad-intelligence/ads`);
       const data = await res.json();
       if (data.success) {
         setGroupedAds(data.grouped || []);
@@ -42,7 +44,7 @@ export default function AdIntelligence({ setActiveTab }) {
   const handleTriggerCrawl = async () => {
     setCrawling(true);
     try {
-      const res = await fetch('http://localhost:5000/api/ad-intelligence/trigger-crawl', { method: 'POST' });
+      const res = await fetch(`${API_BASE}/api/ad-intelligence/trigger-crawl`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         setSuccessMessage('Ad longevity tracking & delayed analysis executed!');
@@ -58,7 +60,7 @@ export default function AdIntelligence({ setActiveTab }) {
 
   const handleSuggestIdea = async (adId) => {
     try {
-      const res = await fetch('http://localhost:5000/api/ad-intelligence/suggest-idea', {
+      const res = await fetch(`${API_BASE}/api/ad-intelligence/suggest-idea`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adId })

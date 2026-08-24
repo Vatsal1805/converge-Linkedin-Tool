@@ -16,6 +16,8 @@ import {
   HelpCircle
 } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export default function Verification() {
   const [daysWindow, setDaysWindow] = useState('14');
   const [summaryData, setSummaryData] = useState(null);
@@ -34,8 +36,8 @@ export default function Verification() {
     setLoading(true);
     try {
       const [sumRes, revRes] = await Promise.all([
-        fetch(`http://localhost:5000/api/verification/summary?days=${daysWindow}`),
-        fetch('http://localhost:5000/api/verification/needs-review')
+        fetch(`${API_BASE}/api/verification/summary?days=${daysWindow}`),
+        fetch(`${API_BASE}/api/verification/needs-review`)
       ]);
 
       const sumJson = await sumRes.json();
@@ -52,7 +54,7 @@ export default function Verification() {
 
   const handleApprove = async (leadId, businessName) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/verification/approve/${leadId}`, {
+      const res = await fetch(`${API_BASE}/api/verification/approve/${leadId}`, {
         method: 'POST'
       });
       const data = await res.json();
@@ -69,7 +71,7 @@ export default function Verification() {
   const handleReverify = async () => {
     setReverifying(true);
     try {
-      await fetch('http://localhost:5000/api/verification/reverify-all', { method: 'POST' });
+      await fetch(`${API_BASE}/api/verification/reverify-all`, { method: 'POST' });
       setActionSuccess('Re-verification cycle executed across all pending leads!');
       fetchData();
       setTimeout(() => setActionSuccess(null), 4000);
