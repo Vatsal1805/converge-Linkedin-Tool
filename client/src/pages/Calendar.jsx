@@ -17,6 +17,8 @@ import {
   FileText
 } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : '';
+
 export default function Calendar({ setActiveTab }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +47,7 @@ export default function Calendar({ setActiveTab }) {
   const fetchCalendarPosts = async () => {
     setLoading(true);
     try {
+      const API_BASE = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : '';
       const res = await fetch(`${API_BASE}/api/calendar`);
       const data = await res.json();
       if (data.success) {

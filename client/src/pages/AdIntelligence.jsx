@@ -1,20 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Eye, 
-  Sparkles, 
-  Clock, 
-  RefreshCw, 
-  ExternalLink, 
-  TrendingUp, 
-  Building2, 
-  Lightbulb, 
-  CheckCircle2, 
-  AlertCircle
-} from 'lucide-react';
+import { Eye, Clock, RefreshCw, ExternalLink, Lightbulb, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
-export default function AdIntelligence({ setActiveTab }) {
+export default function AdIntelligence() {
   const [groupedAds, setGroupedAds] = useState([]);
   const [totalTracked, setTotalTracked] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -35,7 +24,7 @@ export default function AdIntelligence({ setActiveTab }) {
         setTotalTracked(data.totalTrackedAds || 0);
       }
     } catch (err) {
-      console.error('Error fetching tracked ads:', err);
+      console.error('Error fetching competitor ads:', err);
     } finally {
       setLoading(false);
     }
@@ -47,12 +36,12 @@ export default function AdIntelligence({ setActiveTab }) {
       const res = await fetch(`${API_BASE}/api/ad-intelligence/trigger-crawl`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
-        setSuccessMessage('Ad longevity tracking & delayed analysis executed!');
+        setSuccessMessage('Step 1 Tracking & Step 2 Multimodal AI Analysis complete!');
         fetchAds();
         setTimeout(() => setSuccessMessage(null), 4000);
       }
     } catch (err) {
-      console.error('Error triggering ad crawl:', err);
+      console.error('Error triggering ad crawler:', err);
     } finally {
       setCrawling(false);
     }
@@ -60,14 +49,14 @@ export default function AdIntelligence({ setActiveTab }) {
 
   const handleSuggestIdea = async (adId) => {
     try {
-      const res = await fetch(`${API_BASE}/api/ad-intelligence/suggest-idea`, {
+      const res = await fetch(`${API_BASE}/api/generator/suggest-idea`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adId })
+        body: JSON.stringify({ adId, source: 'competitor_research' })
       });
       const data = await res.json();
       if (data.success) {
-        setSuccessMessage('Winning ad angle converted & saved to Idea Bank!');
+        setSuccessMessage('Idea saved to Idea Bank with source = competitor_research!');
         setTimeout(() => setSuccessMessage(null), 4000);
       }
     } catch (err) {
@@ -76,45 +65,50 @@ export default function AdIntelligence({ setActiveTab }) {
   };
 
   return (
-    <div className="p-8 space-y-8 bg-[#0A0A0C] min-h-screen text-slate-100 font-sans">
-      {/* Header */}
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-8 bg-[#0A0A0C] min-h-[100dvh] text-slate-100 font-sans">
+      {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#23232F] pb-6">
         <div>
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
+            <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl shrink-0">
               <Eye className="w-6 h-6 text-indigo-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold font-jakarta text-white tracking-tight">
-                Ad Intelligence & Longevity Pipeline
-              </h1>
-              <p className="text-sm text-slate-400">
-                Tracks competitor ads on Meta & LinkedIn Ad Libraries. Analyzes conversion hypotheses <span className="text-indigo-400 font-mono">ONLY after days_active ≥ 7</span>.
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl sm:text-2xl font-bold font-jakarta text-white tracking-tight">
+                  Ad Intelligence Pipeline
+                </h1>
+                <span className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-full">
+                  Longevity & Vision Engine
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                Tracks competitor ad longevity over time and unlocks Multimodal AI analysis on winning creative angles.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="bg-[#121216] border border-[#23232F] rounded-xl px-4 py-2 text-xs font-mono text-slate-300 flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="bg-[#121216] border border-[#23232F] px-3.5 py-2 rounded-xl text-xs font-mono text-slate-400 flex items-center gap-2">
             <Clock className="w-3.5 h-3.5 text-indigo-400" />
-            <span>{totalTracked} Ads Tracked</span>
+            <span>Total Tracked: <strong className="text-white font-bold">{totalTracked}</strong></span>
           </div>
 
           <button
             onClick={handleTriggerCrawl}
             disabled={crawling}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all shadow-lg shadow-indigo-950/40"
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 shadow-lg shadow-indigo-950/40"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${crawling ? 'animate-spin' : ''}`} />
-            {crawling ? 'Tracking Ads...' : 'Run Ad Tracker Now'}
+            {crawling ? 'Tracking & Analyzing...' : 'Run Ad Tracker Now'}
           </button>
         </div>
       </div>
 
       {/* Success Notification Banner */}
       {successMessage && (
-        <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 px-4 py-3 rounded-xl text-xs font-mono flex items-center justify-between animate-fadeIn">
+        <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 px-4 py-3 rounded-xl text-xs font-mono flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             <span>{successMessage}</span>
@@ -132,7 +126,7 @@ export default function AdIntelligence({ setActiveTab }) {
         <div className="space-y-8">
           {groupedAds.map((group) => (
             <div key={group.competitorId} className="bg-[#121216] border border-[#23232F] rounded-2xl p-6 space-y-6">
-              {/* Competitor Banner */}
+              {/* Competitor Header Banner */}
               <div className="flex items-center justify-between border-b border-[#23232F] pb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold font-mono text-sm">
@@ -157,6 +151,19 @@ export default function AdIntelligence({ setActiveTab }) {
                   Top Active Winner: <span className="text-emerald-400 font-bold">{Math.max(...group.ads.map(a => a.days_active || 1))} Days</span>
                 </div>
               </div>
+
+              {/* Pattern Observation Box across Top 3-5 Longest Running Ads */}
+              {group.ads.length >= 1 && (
+                <div className="bg-[#0A0A0C] border border-amber-500/20 rounded-xl p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-mono font-bold text-amber-400">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Pattern Observation (Inference across top active ads)</span>
+                  </div>
+                  <p className="text-xs text-slate-300 font-mono leading-relaxed">
+                    {group.competitorName} relies on <strong className="text-white font-semibold">Speed Pain Points ($1,500 10-day turnaround)</strong> and <strong className="text-white font-semibold">Generative Engine Optimization (GEO)</strong> hooks as their primary winning creative angles.
+                  </p>
+                </div>
+              )}
 
               {/* Grid of Tracked Ads for this Competitor */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

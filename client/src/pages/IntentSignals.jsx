@@ -13,7 +13,7 @@ import {
   Building2
 } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : '';
 
 export default function IntentSignals() {
   const [signals, setSignals] = useState([]);
@@ -78,52 +78,76 @@ export default function IntentSignals() {
   };
 
   return (
-    <div className="p-8 space-y-8 bg-[#0A0A0C] min-h-screen text-slate-100 font-sans">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-8 bg-[#0A0A0C] min-h-[100dvh] text-slate-100 font-sans">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#23232F] pb-6">
         <div>
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-violet-500/10 border border-violet-500/20 rounded-xl">
+            <div className="p-2.5 bg-violet-500/10 border border-violet-500/20 rounded-xl shrink-0">
               <Radio className="w-6 h-6 text-violet-400" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold font-jakarta text-white tracking-tight">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl sm:text-2xl font-bold font-jakarta text-white tracking-tight">
                   Intent Signal Mining Hub
                 </h1>
-                <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2.5 py-0.5 rounded-full font-mono text-[10px] font-semibold uppercase">
+                <span className="bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
                   Unverified — Review Required
                 </span>
               </div>
-              <p className="text-sm text-slate-400">
-                Parses public Reddit RSS feeds & grounded web queries for real business pain points <span className="text-violet-400 font-mono">BEFORE prospects search for an agency</span>.
+              <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                Scans public Reddit RSS feeds & grounded queries for buyer pain points before prospects search for an agency.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleTriggerMining}
             disabled={mining}
-            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all shadow-lg shadow-violet-950/40"
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 shadow-lg shadow-violet-950/40"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${mining ? 'animate-spin' : ''}`} />
-            {mining ? 'Mining RSS Feeds...' : 'Mine Intent Signals Now'}
+            {mining ? 'Mining RSS & Forums...' : 'Mine Intent Signals Now'}
           </button>
         </div>
       </div>
 
-      {/* Notification Banner */}
+      {/* Notification Toast */}
       {notification && (
-        <div className="bg-violet-500/10 border border-violet-500/30 text-violet-300 px-4 py-3 rounded-xl text-xs font-mono flex items-center justify-between animate-fadeIn">
+        <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 rounded-xl p-3 text-xs font-mono flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-violet-400" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             <span>{notification}</span>
           </div>
-          <button onClick={() => setNotification(null)} className="text-violet-400 hover:text-white">✕</button>
+          <button onClick={() => setNotification(null)} className="text-emerald-400">✕</button>
         </div>
       )}
+
+      {/* Weekly Signal Breakdown Summary Card */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-[#121216] border border-[#23232F] rounded-xl p-4 space-y-1">
+          <div className="text-[10px] font-mono uppercase text-slate-500">Total Live Signals</div>
+          <div className="text-xl font-bold font-heading text-white">{signals.length} Indexed</div>
+          <div className="text-[11px] text-violet-400 font-mono">Unverified Public Forum Posts</div>
+        </div>
+        <div className="bg-[#121216] border border-[#23232F] rounded-xl p-4 space-y-1">
+          <div className="text-[10px] font-mono uppercase text-slate-500">Genuine Intent Signals</div>
+          <div className="text-xl font-bold font-heading text-emerald-400">
+            {signals.filter(s => s.ai_relevance_classification === 'genuine_intent').length} Genuine
+          </div>
+          <div className="text-[11px] text-slate-400 font-mono">High-Priority Outreach Opportunity</div>
+        </div>
+        <div className="bg-[#121216] border border-[#23232F] rounded-xl p-4 space-y-1">
+          <div className="text-[10px] font-mono uppercase text-slate-500">Top Sources</div>
+          <div className="text-xs font-bold font-mono text-slate-300">
+            r/shopify • r/ecommerce • Facebook Groups
+          </div>
+          <div className="text-[11px] text-slate-400 font-mono">Weekly Grounded AI & RSS Feeds</div>
+        </div>
+      </div>
 
       {/* Controls & Filter Bar */}
       <div className="bg-[#121216] border border-[#23232F] rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 font-mono text-xs">

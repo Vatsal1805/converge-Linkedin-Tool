@@ -15,7 +15,7 @@ async function callGeminiGrounding(promptText) {
   // 1. Primary: Direct Gemini 3.5 Flash with Live Google Search Grounding Tool
   if (apiKey && !apiKey.includes('placeholder')) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -42,9 +42,8 @@ async function callGeminiGrounding(promptText) {
   // 2. Secondary Fallback: 100% Free OpenRouter Models
   if (openRouterKey && !openRouterKey.includes('placeholder')) {
     const fallbackModels = [
-      'google/gemini-2.0-flash-lite-001',
-      'meta-llama/llama-3.1-8b-instruct:free',
-      'deepseek/deepseek-chat'
+      'deepseek/deepseek-chat',
+      'qwen/qwen-2.5-72b-instruct'
     ];
 
     for (const model of fallbackModels) {
@@ -103,18 +102,26 @@ export async function runDailyCompetitorCrawl() {
     for (const comp of competitors) {
       if (!comp.name) continue;
 
-      const { data: inserted, error } = await supabase
-        .from('competitors')
-        .upsert({
-          name: comp.name,
-          website_url: comp.website_url || null,
-          industry_tag: comp.industry_tag || 'Web Dev & AI',
-          notes: comp.notes || 'Discovered automatically via scheduled daily Gemini crawl',
-          discovered_via: 'cron_gemini_search',
-          active: true
-        }, { onConflict: 'name' })
-        .select()
-        .single();
+      const { data: existing } = await supabase.from('competitors').select('id').eq('name', comp.name).maybeSingle();
+      let inserted = null;
+
+      if (!existing) {
+        const { data: newComp, error: insertErr } = await supabase
+          .from('competitors')
+          .insert([{
+            name: comp.name,
+            website_url: comp.website_url || null,
+            industry_tag: comp.industry_tag || 'Web Dev & AI',
+            notes: comp.notes || 'Discovered automatically via scheduled daily Gemini crawl',
+            discovered_via: 'cron_gemini_search',
+            active: true
+          }])
+          .select()
+          .single();
+        if (!insertErr) inserted = newComp;
+      } else {
+        inserted = existing;
+      }
 
       if (!error && inserted) {
         added++;

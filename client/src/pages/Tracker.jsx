@@ -14,7 +14,7 @@ import {
   Info
 } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : '';
 
 export default function Tracker() {
   const [posts, setPosts] = useState([]);
@@ -169,128 +169,232 @@ export default function Tracker() {
             No posted posts found yet. Generate and save a post in the Calendar to begin tracking metrics!
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs font-sans">
-              <thead>
-                <tr className="border-b border-[#23232F] text-gray-400 font-mono uppercase text-[10px]">
-                  <th className="pb-3 px-3">Post Strategy / Pillar</th>
-                  <th className="pb-3 px-2 w-24">Impressions</th>
-                  <th className="pb-3 px-2 w-24">Reactions</th>
-                  <th className="pb-3 px-2 w-24">Comments</th>
-                  <th className="pb-3 px-2 w-24">DMs Received</th>
-                  <th className="pb-3 px-2 w-32">Client Lead Type</th>
-                  <th className="pb-3 px-3">Learnings / Notes</th>
-                  <th className="pb-3 px-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#23232F]/60">
-                {posts.map((post) => {
-                  const form = metricsForm[post.id] || {};
-                  const isSaving = savingId === post.id;
-                  const isSaved = savedSuccessId === post.id;
+          <>
+            {/* Mobile Stacked Cards Layout (Phone screens <768px) */}
+            <div className="block md:hidden space-y-4">
+              {posts.map((post) => {
+                const form = metricsForm[post.id] || {};
+                const isSaving = savingId === post.id;
+                const isSaved = savedSuccessId === post.id;
 
-                  return (
-                    <tr key={post.id} className="hover:bg-[#1A1A22]/50 transition-colors">
-                      {/* Post Copy / Pillar */}
-                      <td className="py-3 px-3 max-w-xs space-y-1">
-                        <div className="flex items-center gap-2">
-                          {getPillarBadge(post.pillar)}
-                          <span className="text-[10px] font-mono text-gray-500 uppercase">{post.day_slot}</span>
-                        </div>
-                        <p className="text-xs text-gray-300 font-medium line-clamp-2 leading-relaxed">
-                          "{post.idea_text || post.selected_draft}"
-                        </p>
-                      </td>
+                return (
+                  <div key={post.id} className="bg-[#0A0A0C] border border-[#23232F] rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      {getPillarBadge(post.pillar)}
+                      <span className="text-[10px] font-mono text-gray-400 uppercase">{post.day_slot}</span>
+                    </div>
 
-                      {/* Impressions */}
-                      <td className="py-3 px-2">
+                    <p className="text-xs text-gray-200 font-medium line-clamp-2">
+                      "{post.idea_text || post.selected_draft}"
+                    </p>
+
+                    {/* Metric Inputs 2x2 Grid */}
+                    <div className="grid grid-cols-2 gap-2 pt-2">
+                      <div>
+                        <label className="text-[10px] font-mono text-gray-500 block mb-1">IMPRESSIONS</label>
                         <input
                           type="number"
                           value={form.impressions || ''}
                           onChange={(e) => handleInputChange(post.id, 'impressions', e.target.value)}
                           placeholder="e.g. 1200"
-                          className="w-full bg-[#0A0A0C] border border-[#23232F] focus:border-indigo-500 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none font-mono"
+                          className="w-full bg-[#121216] border border-[#23232F] rounded-lg p-2 text-xs text-white outline-none font-mono"
                         />
-                      </td>
+                      </div>
 
-                      {/* Reactions */}
-                      <td className="py-3 px-2">
+                      <div>
+                        <label className="text-[10px] font-mono text-gray-500 block mb-1">REACTIONS</label>
                         <input
                           type="number"
                           value={form.reactions || ''}
                           onChange={(e) => handleInputChange(post.id, 'reactions', e.target.value)}
                           placeholder="e.g. 45"
-                          className="w-full bg-[#0A0A0C] border border-[#23232F] focus:border-indigo-500 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none font-mono"
+                          className="w-full bg-[#121216] border border-[#23232F] rounded-lg p-2 text-xs text-white outline-none font-mono"
                         />
-                      </td>
+                      </div>
 
-                      {/* Comments */}
-                      <td className="py-3 px-2">
+                      <div>
+                        <label className="text-[10px] font-mono text-gray-500 block mb-1">COMMENTS</label>
                         <input
                           type="number"
                           value={form.comments || ''}
                           onChange={(e) => handleInputChange(post.id, 'comments', e.target.value)}
                           placeholder="e.g. 12"
-                          className="w-full bg-[#0A0A0C] border border-[#23232F] focus:border-indigo-500 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none font-mono"
+                          className="w-full bg-[#121216] border border-[#23232F] rounded-lg p-2 text-xs text-white outline-none font-mono"
                         />
-                      </td>
+                      </div>
 
-                      {/* DMs Received */}
-                      <td className="py-3 px-2">
+                      <div>
+                        <label className="text-[10px] font-mono text-emerald-400 block mb-1">DMs RECEIVED</label>
                         <input
                           type="number"
                           value={form.dms_received || ''}
                           onChange={(e) => handleInputChange(post.id, 'dms_received', e.target.value)}
                           placeholder="e.g. 3"
-                          className="w-full bg-[#0A0A0C] border border-emerald-500/30 focus:border-emerald-500 rounded-lg px-2.5 py-1.5 text-xs text-emerald-400 font-mono font-bold"
+                          className="w-full bg-[#121216] border border-emerald-500/40 rounded-lg p-2 text-xs text-emerald-300 font-mono font-bold outline-none"
                         />
-                      </td>
+                      </div>
+                    </div>
 
-                      {/* Client Lead Type Dropdown */}
-                      <td className="py-3 px-2">
+                    {/* Client Type & Notes */}
+                    <div className="space-y-2 pt-1">
+                      <div>
+                        <label className="text-[10px] font-mono text-gray-500 block mb-1">CLIENT LEAD TYPE</label>
                         <select
                           value={form.client_type_of_dm || 'international'}
                           onChange={(e) => handleInputChange(post.id, 'client_type_of_dm', e.target.value)}
-                          className="w-full bg-[#0A0A0C] border border-[#23232F] focus:border-indigo-500 rounded-lg px-2 py-1.5 text-xs text-white outline-none font-mono"
+                          className="w-full bg-[#121216] border border-[#23232F] rounded-lg p-2 text-xs text-white outline-none font-mono"
                         >
                           <option value="international">🌐 International</option>
                           <option value="local">📍 Local</option>
                           <option value="unclear">❓ Unclear</option>
                         </select>
-                      </td>
+                      </div>
 
-                      {/* Notes */}
-                      <td className="py-3 px-3">
+                      <div>
+                        <label className="text-[10px] font-mono text-gray-500 block mb-1">LEARNINGS / NOTES</label>
                         <input
                           type="text"
                           value={form.notes || ''}
                           onChange={(e) => handleInputChange(post.id, 'notes', e.target.value)}
                           placeholder="Add client inquiry note..."
-                          className="w-full bg-[#0A0A0C] border border-[#23232F] focus:border-indigo-500 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none"
+                          className="w-full bg-[#121216] border border-[#23232F] rounded-lg p-2 text-xs text-white outline-none"
                         />
-                      </td>
+                      </div>
+                    </div>
 
-                      {/* Action */}
-                      <td className="py-3 px-3 text-right">
-                        <button
-                          onClick={() => handleSaveMetrics(post.id)}
-                          disabled={isSaving}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1 ml-auto ${
-                            isSaved
-                              ? 'bg-emerald-600 text-white'
-                              : 'bg-indigo-600 hover:bg-indigo-500 text-white'
-                          }`}
-                        >
-                          {isSaved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-                          <span>{isSaved ? 'Saved' : isSaving ? '...' : 'Save'}</span>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                    <button
+                      onClick={() => handleSaveMetrics(post.id)}
+                      disabled={isSaving}
+                      className={`w-full py-2 rounded-lg text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5 mt-2 ${
+                        isSaved
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                      }`}
+                    >
+                      {isSaved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                      <span>{isSaved ? 'Saved Metrics' : isSaving ? 'Saving...' : 'Save Performance Metrics'}</span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Full Table View (Desktop screens ≥768px) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs font-sans">
+                <thead>
+                  <tr className="border-b border-[#23232F] text-gray-400 font-mono uppercase text-[10px]">
+                    <th className="pb-3 px-3">Post Strategy / Pillar</th>
+                    <th className="pb-3 px-2 w-24">Impressions</th>
+                    <th className="pb-3 px-2 w-24">Reactions</th>
+                    <th className="pb-3 px-2 w-24">Comments</th>
+                    <th className="pb-3 px-2 w-24">DMs Received</th>
+                    <th className="pb-3 px-2 w-32">Client Lead Type</th>
+                    <th className="pb-3 px-3">Learnings / Notes</th>
+                    <th className="pb-3 px-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#23232F]/60">
+                  {posts.map((post) => {
+                    const form = metricsForm[post.id] || {};
+                    const isSaving = savingId === post.id;
+                    const isSaved = savedSuccessId === post.id;
+
+                    return (
+                      <tr key={post.id} className="hover:bg-[#1A1A22]/50 transition-colors">
+                        <td className="py-3 px-3 max-w-xs space-y-1">
+                          <div className="flex items-center gap-2">
+                            {getPillarBadge(post.pillar)}
+                            <span className="text-[10px] font-mono text-gray-500 uppercase">{post.day_slot}</span>
+                          </div>
+                          <p className="text-xs text-gray-300 font-medium line-clamp-2 leading-relaxed">
+                            "{post.idea_text || post.selected_draft}"
+                          </p>
+                        </td>
+
+                        <td className="py-3 px-2">
+                          <input
+                            type="number"
+                            value={form.impressions || ''}
+                            onChange={(e) => handleInputChange(post.id, 'impressions', e.target.value)}
+                            placeholder="e.g. 1200"
+                            className="w-full bg-[#0A0A0C] border border-[#23232F] focus:border-indigo-500 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none font-mono"
+                          />
+                        </td>
+
+                        <td className="py-3 px-2">
+                          <input
+                            type="number"
+                            value={form.reactions || ''}
+                            onChange={(e) => handleInputChange(post.id, 'reactions', e.target.value)}
+                            placeholder="e.g. 45"
+                            className="w-full bg-[#0A0A0C] border border-[#23232F] focus:border-indigo-500 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none font-mono"
+                          />
+                        </td>
+
+                        <td className="py-3 px-2">
+                          <input
+                            type="number"
+                            value={form.comments || ''}
+                            onChange={(e) => handleInputChange(post.id, 'comments', e.target.value)}
+                            placeholder="e.g. 12"
+                            className="w-full bg-[#0A0A0C] border border-[#23232F] focus:border-indigo-500 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none font-mono"
+                          />
+                        </td>
+
+                        <td className="py-3 px-2">
+                          <input
+                            type="number"
+                            value={form.dms_received || ''}
+                            onChange={(e) => handleInputChange(post.id, 'dms_received', e.target.value)}
+                            placeholder="e.g. 3"
+                            className="w-full bg-[#0A0A0C] border border-emerald-500/30 focus:border-emerald-500 rounded-lg px-2.5 py-1.5 text-xs text-emerald-400 font-mono font-bold"
+                          />
+                        </td>
+
+                        <td className="py-3 px-2">
+                          <select
+                            value={form.client_type_of_dm || 'international'}
+                            onChange={(e) => handleInputChange(post.id, 'client_type_of_dm', e.target.value)}
+                            className="w-full bg-[#0A0A0C] border border-[#23232F] focus:border-indigo-500 rounded-lg px-2 py-1.5 text-xs text-white outline-none font-mono"
+                          >
+                            <option value="international">🌐 International</option>
+                            <option value="local">📍 Local</option>
+                            <option value="unclear">❓ Unclear</option>
+                          </select>
+                        </td>
+
+                        <td className="py-3 px-3">
+                          <input
+                            type="text"
+                            value={form.notes || ''}
+                            onChange={(e) => handleInputChange(post.id, 'notes', e.target.value)}
+                            placeholder="Add client inquiry note..."
+                            className="w-full bg-[#0A0A0C] border border-[#23232F] focus:border-indigo-500 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none"
+                          />
+                        </td>
+
+                        <td className="py-3 px-3 text-right">
+                          <button
+                            onClick={() => handleSaveMetrics(post.id)}
+                            disabled={isSaving}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1 ml-auto ${
+                              isSaved
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                            }`}
+                          >
+                            {isSaved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                            <span>{isSaved ? 'Saved' : isSaving ? '...' : 'Save'}</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

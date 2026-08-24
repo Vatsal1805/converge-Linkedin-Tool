@@ -127,7 +127,7 @@ Return PURE JSON ONLY: {"pillar": "offer" | "authority" | "aradhya" | "proof", "
 router.post('/trigger-crawl', async (req, res) => {
   try {
     const trackRes = await runDailyAdTrackingJob();
-    const analysisRes = await runDelayedAdAnalysisJob();
+    const analysisRes = await runDelayedAdAnalysisJob(true);
 
     res.json({
       success: true,

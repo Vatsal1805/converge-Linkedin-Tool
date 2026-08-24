@@ -16,7 +16,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : '';
 
 export default function Verification() {
   const [daysWindow, setDaysWindow] = useState('14');
@@ -105,26 +105,26 @@ export default function Verification() {
   });
 
   return (
-    <div className="p-8 space-y-8 bg-[#0A0A0C] min-h-screen text-slate-100 font-sans">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-8 bg-[#0A0A0C] min-h-[100dvh] text-slate-100 font-sans">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#23232F] pb-6">
         <div>
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+            <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl shrink-0">
               <ShieldCheck className="w-6 h-6 text-emerald-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold font-jakarta text-white tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-bold font-jakarta text-white tracking-tight">
                 Automated Lead Verification Hub
               </h1>
-              <p className="text-sm text-slate-400">
+              <p className="text-xs sm:text-sm text-slate-400">
                 Independent 4-check deterministic verifier testing Places API cross-checks, phone validity, site reachability, and Scenario 1 claims.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 bg-[#121216] border border-[#23232F] rounded-xl px-3 py-1.5 text-xs text-slate-300">
             <Filter className="w-3.5 h-3.5 text-slate-400" />
             <span>Test Window:</span>

@@ -20,6 +20,8 @@ import {
   CheckCircle2
 } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : '';
+
 export default function Generator({ setActiveTab }) {
   // Day-to-pillar auto detection
   const days = ['mon', 'tue', 'wed', 'thu', 'fri'];
@@ -157,6 +159,7 @@ export default function Generator({ setActiveTab }) {
   const handleSavePost = async (draftText, index) => {
     setSavingPost(true);
     try {
+      const API_BASE = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : '';
       const res = await fetch(`${API_BASE}/api/save-post`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -325,7 +328,7 @@ export default function Generator({ setActiveTab }) {
         </div>
 
         {/* Mon-Fri Day Navigation Bar */}
-        <div className="grid grid-cols-5 gap-2 pt-2 border-t border-[#23232F]">
+        <div className="flex gap-2 pt-2 border-t border-[#23232F] overflow-x-auto pb-1 scrollbar-none">
           {days.map((day) => {
             const pillarKey = pillarDayMap[day];
             const isSelected = activeDay === day;
@@ -333,7 +336,7 @@ export default function Generator({ setActiveTab }) {
               <button
                 key={day}
                 onClick={() => handleSelectDay(day)}
-                className={`p-3 rounded-xl border text-left transition-all ${
+                className={`p-3 rounded-xl border text-left transition-all shrink-0 min-w-[110px] sm:min-w-0 sm:flex-1 ${
                   isSelected
                     ? 'border-indigo-500/50 bg-indigo-500/10 shadow-lg shadow-indigo-600/10'
                     : 'border-[#23232F] bg-[#0A0A0C] hover:border-gray-700 text-gray-400'
@@ -354,20 +357,20 @@ export default function Generator({ setActiveTab }) {
 
       {/* STEP 1: Auto-Sourced Idea Cards */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-bold font-heading text-white">Select an Idea Card to Generate 3 Drafts</h3>
-            <span className="text-xs text-gray-500 font-mono">(5 Auto-Mixed Angles)</span>
+            <span className="text-xs text-gray-500 font-mono hidden sm:inline">(5 Auto-Mixed Angles)</span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleRunCrawlerNow}
               disabled={crawling}
               className="text-xs font-mono text-emerald-400 hover:text-emerald-300 bg-[#121216] border border-[#23232F] hover:border-emerald-500/40 px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-all shadow-sm"
             >
               <Zap className={`w-3.5 h-3.5 ${crawling ? 'animate-bounce text-emerald-300' : ''}`} />
-              <span>{crawling ? 'Crawling Trends...' : 'Crawl Trends & Founder Signals'}</span>
+              <span>{crawling ? 'Crawling...' : 'Crawl Trends'}</span>
             </button>
 
             <button
@@ -393,7 +396,7 @@ export default function Generator({ setActiveTab }) {
             Fetching ideas from GitHub org, crawlers & client logs...
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
             {ideas.map((idea) => {
               const isSelected = selectedIdea?.id === idea.id;
               return (

@@ -12,7 +12,7 @@ import {
   Lock
 } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : '';
 
 export default function GitHubSync() {
   const [projects, setProjects] = useState([]);

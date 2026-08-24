@@ -11,10 +11,11 @@ import {
   Radio,
   Settings, 
   LogOut,
-  Zap
+  Zap,
+  X
 } from 'lucide-react';
 
-export default function Sidebar({ activeTab, setActiveTab, onLogout }) {
+export default function Sidebar({ activeTab, setActiveTab, onLogout, mobileOpen, setMobileOpen }) {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'generator', label: 'Generator', icon: Sparkles, badge: 'AI' },
@@ -28,8 +29,13 @@ export default function Sidebar({ activeTab, setActiveTab, onLogout }) {
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
-  return (
-    <aside className="w-64 bg-[#121216] border-r border-[#23232F] flex flex-col justify-between h-screen sticky top-0 z-30">
+  const handleSelectTab = (id) => {
+    setActiveTab(id);
+    if (setMobileOpen) setMobileOpen(false);
+  };
+
+  const sidebarContent = (
+    <div className="flex flex-col justify-between h-full">
       <div>
         {/* Header / Brand */}
         <div className="p-6 border-b border-[#23232F] flex items-center justify-between">
@@ -42,11 +48,21 @@ export default function Sidebar({ activeTab, setActiveTab, onLogout }) {
               <p className="text-[11px] text-gray-500 font-mono">LinkedIn Engine</p>
             </div>
           </div>
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="System Active" />
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="System Active" />
+            {mobileOpen && (
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="md:hidden p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1A1A22]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Navigation Items */}
-        <nav className="p-3 space-y-1">
+        <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-180px)]">
           <div className="px-3 py-2 text-[10px] font-mono uppercase text-gray-500 tracking-wider">
             Internal Workspace
           </div>
@@ -56,7 +72,7 @@ export default function Sidebar({ activeTab, setActiveTab, onLogout }) {
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => handleSelectTab(item.id)}
                 className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all group ${
                   isActive
                     ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/30'
@@ -89,13 +105,40 @@ export default function Sidebar({ activeTab, setActiveTab, onLogout }) {
         </div>
 
         <button
-          onClick={onLogout}
+          onClick={() => {
+            if (setMobileOpen) setMobileOpen(false);
+            onLogout();
+          }}
           className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-gray-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all font-mono"
         >
           <LogOut className="w-3.5 h-3.5" />
           <span>Lock Dashboard</span>
         </button>
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop Sticky Sidebar */}
+      <aside className="hidden md:flex w-64 bg-[#121216] border-r border-[#23232F] flex-col justify-between min-h-screen sticky top-0 z-30 shrink-0">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile Drawer Overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
+            onClick={() => setMobileOpen(false)}
+          />
+          {/* Drawer Content */}
+          <div className="relative w-72 max-w-[80vw] bg-[#121216] border-r border-[#23232F] h-full z-10 flex flex-col shadow-2xl">
+            {sidebarContent}
+          </div>
+        </div>
+      )}
+    </>
   );
 }

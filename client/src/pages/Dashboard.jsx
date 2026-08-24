@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Calendar, TrendingUp, Github, Eye, ArrowUpRight, CheckCircle2, Clock, Database, RefreshCw, Zap, ShieldCheck } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : '';
 
 export default function Dashboard({ setActiveTab }) {
   const [cronStatus, setCronStatus] = useState(null);

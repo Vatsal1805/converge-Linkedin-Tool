@@ -20,9 +20,6 @@ router.get('/list', async (req, res) => {
 
     if (classification && classification !== 'all') {
       query = query.eq('ai_relevance_classification', classification);
-    } else {
-      // By default surface genuine_intent and ambiguous
-      query = query.in('ai_relevance_classification', ['genuine_intent', 'ambiguous']);
     }
 
     const { data: signals, error } = await query;

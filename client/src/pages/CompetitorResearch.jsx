@@ -21,6 +21,8 @@ import {
   Mail
 } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : '';
+
 export default function CompetitorResearch({ setActiveTab }) {
   const [activeSubTab, setActiveSubTab] = useState('competitors'); // 'competitors', 'web_leads', 'aradhya_leads'
   

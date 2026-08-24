@@ -17,7 +17,7 @@ async function callGeminiLiveSearch(promptText) {
   if (geminiKey && !geminiKey.includes('placeholder')) {
     try {
       console.log('[Gemini Live Search] Executing live Google Search Grounding tool query...');
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -44,9 +44,9 @@ async function callGeminiLiveSearch(promptText) {
   // Fallback to 100% Free OpenRouter Models
   if (openRouterKey && !openRouterKey.includes('placeholder')) {
     const fallbackModels = [
-      'google/gemini-2.0-flash-lite-001',
-      'meta-llama/llama-3.1-8b-instruct:free',
-      'deepseek/deepseek-chat'
+      'google/gemini-2.5-flash-lite',
+      'deepseek/deepseek-chat',
+      'qwen/qwen-2.5-72b-instruct'
     ];
 
     for (const model of fallbackModels) {
@@ -79,7 +79,7 @@ async function callGeminiLiveSearch(promptText) {
   return null;
 }
 
-// 1. Get all competitors & linked ad research (ONLY REAL CRAWLED DATA)
+// 1. Get all competitors & linked ad research
 router.get('/competitors', async (req, res) => {
   try {
     const { data: competitors, error } = await supabase

@@ -11,17 +11,41 @@ import GitHubSync from './pages/GitHubSync';
 import Verification from './pages/Verification';
 import AdIntelligence from './pages/AdIntelligence';
 import IntentSignals from './pages/IntentSignals';
-import { Sparkles, CalendarDays, BarChart3, Eye, Github, Settings as SettingsIcon } from 'lucide-react';
 
 export default function App() {
   const [authenticated, setAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // Persist Active Tab across page reloads & URL hashes
+  const getInitialTab = () => {
+    const hash = window.location.hash.replace('#', '');
+    const validTabs = ['dashboard', 'generator', 'calendar', 'tracker', 'competitors', 'ad-intelligence', 'intent-signals', 'verification', 'github'];
+    if (hash && validTabs.includes(hash)) return hash;
+    const saved = localStorage.getItem('converge_active_tab');
+    if (saved && validTabs.includes(saved)) return saved;
+    return 'dashboard';
+  };
+
+  const [activeTab, setActiveTabState] = useState(getInitialTab);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const setActiveTab = (tab) => {
+    window.location.hash = tab;
+    localStorage.setItem('converge_active_tab', tab);
+    setActiveTabState(tab);
+  };
 
   useEffect(() => {
     const isAuth = localStorage.getItem('converge_team_auth');
     if (isAuth === 'true') {
       setAuthenticated(true);
     }
+
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash) setActiveTabState(hash);
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
   const handleLogout = () => {
@@ -34,15 +58,25 @@ export default function App() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#0A0A0C] text-[#F3F4F6] selection:bg-indigo-500 selection:text-white">
-      {/* Sidebar */}
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} />
+    <div className="flex min-h-[100dvh] bg-[#0A0A0C] text-[#F3F4F6] selection:bg-indigo-500 selection:text-white relative">
+      {/* Sidebar (Desktop + Mobile Drawer) */}
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        onLogout={handleLogout}
+        mobileOpen={mobileOpen}
+        setMobileOpen={setMobileOpen}
+      />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        <Header activeTab={activeTab} setActiveTab={setActiveTab} />
+        <Header 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          setMobileOpen={setMobileOpen}
+        />
 
-        <main className="p-6 md:p-8 flex-1 max-w-[1400px] w-full mx-auto">
+        <main className="p-4 sm:p-6 md:p-8 flex-1 max-w-[1400px] w-full mx-auto">
           {activeTab === 'dashboard' && <Dashboard setActiveTab={setActiveTab} />}
           
           {activeTab === 'generator' && <Generator setActiveTab={setActiveTab} />}
@@ -62,34 +96,29 @@ export default function App() {
           {activeTab === 'github' && <GitHubSync />}
 
           {activeTab === 'settings' && (
-            <div className="bg-[#121216] border border-[#23232F] rounded-2xl p-8 space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center">
-                  <SettingsIcon className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold font-heading text-white">System Settings & Configuration</h2>
-                  <p className="text-xs text-gray-400 font-mono">Environment variables & API status</p>
-                </div>
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold font-heading text-white">System Settings & Integrations</h1>
+                <p className="text-xs sm:text-sm text-gray-400">Environment status and API integrations.</p>
               </div>
 
-              <div className="space-y-4 pt-4 border-t border-[#23232F]">
-                <div className="flex items-center justify-between p-4 bg-[#0A0A0C] border border-[#23232F] rounded-xl text-sm font-mono">
-                  <span>Supabase Database (Postgres)</span>
-                  <span className="px-2.5 py-1 rounded bg-amber-500/10 text-amber-400 text-xs border border-amber-500/20">Pending Schema Seed</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex items-center justify-between p-4 bg-[#121216] border border-[#23232F] rounded-xl text-sm font-mono">
+                  <span>Supabase PostgreSQL</span>
+                  <span className="px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 text-xs border border-emerald-500/20">Connected</span>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-[#0A0A0C] border border-[#23232F] rounded-xl text-sm font-mono">
-                  <span>OpenRouter API (Qwen / DeepSeek)</span>
-                  <span className="px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 text-xs border border-emerald-500/20">Ready</span>
+                <div className="flex items-center justify-between p-4 bg-[#121216] border border-[#23232F] rounded-xl text-sm font-mono">
+                  <span>OpenRouter (Multi-LLM)</span>
+                  <span className="px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 text-xs border border-emerald-500/20">Connected</span>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-[#0A0A0C] border border-[#23232F] rounded-xl text-sm font-mono">
+                <div className="flex items-center justify-between p-4 bg-[#121216] border border-[#23232F] rounded-xl text-sm font-mono">
                   <span>Perplexity Sonar API</span>
                   <span className="px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 text-xs border border-emerald-500/20">Ready</span>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-[#0A0A0C] border border-[#23232F] rounded-xl text-sm font-mono">
+                <div className="flex items-center justify-between p-4 bg-[#121216] border border-[#23232F] rounded-xl text-sm font-mono">
                   <span>Team Password Gate</span>
                   <span className="px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 text-xs border border-emerald-500/20">Active (Configured in .env)</span>
                 </div>

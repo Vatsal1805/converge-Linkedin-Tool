@@ -15,7 +15,7 @@ async function callAI(systemPrompt, userPrompt, messagesHistory = []) {
   if (geminiKey && !geminiKey.includes('placeholder')) {
     try {
       console.log('[AI Call] Trying direct Gemini 3.5 Flash API...');
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
       const fullPrompt = `${systemPrompt}\n\nUser Request: ${userPrompt}`;
       
       const response = await fetch(url, {
@@ -43,10 +43,8 @@ async function callAI(systemPrompt, userPrompt, messagesHistory = []) {
   // 2. Secondary: OpenRouter Fallback Chain (Active Free/Valid Slugs)
   if (openRouterKey && !openRouterKey.includes('placeholder')) {
     const openRouterModels = [
-      'google/gemini-2.0-flash-lite-001',
+      'google/gemini-2.5-flash-lite',
       'deepseek/deepseek-chat',
-      'meta-llama/llama-3.1-8b-instruct:free',
-      'mistralai/mistral-7b-instruct:free',
       'qwen/qwen-2.5-72b-instruct'
     ];
 
