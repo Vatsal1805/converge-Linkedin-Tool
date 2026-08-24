@@ -159,3 +159,50 @@ CREATE TABLE IF NOT EXISTS verification_stats (
     check_failures JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- 13. Prompt A: Tracked Ads Table (Ad Intelligence Pipeline)
+CREATE TYPE ad_source_enum AS ENUM ('meta_ad_library', 'linkedin_ad_library');
+CREATE TYPE ad_analysis_status_enum AS ENUM ('too_new', 'analyzed', 'stopped');
+
+CREATE TABLE IF NOT EXISTS tracked_ads (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    competitor_id UUID REFERENCES competitors(id) ON DELETE CASCADE,
+    source ad_source_enum NOT NULL DEFAULT 'meta_ad_library',
+    platform_ad_id VARCHAR(255) NOT NULL,
+    creative_image_url TEXT,
+    creative_video_url TEXT,
+    ad_copy_text TEXT,
+    first_seen_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    stopped_running_at TIMESTAMP WITH TIME ZONE,
+    days_active INT DEFAULT 1,
+    analysis_status ad_analysis_status_enum DEFAULT 'too_new',
+    ai_analysis TEXT,
+    analyzed_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_tracked_ads_comp ON tracked_ads(competitor_id);
+CREATE INDEX IF NOT EXISTS idx_tracked_ads_status ON tracked_ads(analysis_status);
+
+-- 14. Prompt B: Intent Signals Table (Intent Signal Mining)
+CREATE TYPE signal_source_enum AS ENUM ('reddit_rss', 'grounded_search');
+CREATE TYPE detected_service_enum AS ENUM ('web_dev', 'branding', 'seo', 'social_media', 'aradhya_ai_video', 'general');
+CREATE TYPE relevance_classification_enum AS ENUM ('genuine_intent', 'ambiguous', 'noise');
+CREATE TYPE signal_status_enum AS ENUM ('new', 'reviewed', 'dismissed', 'acted_on');
+
+CREATE TABLE IF NOT EXISTS intent_signals (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    source signal_source_enum DEFAULT 'reddit_rss',
+    subreddit_or_platform VARCHAR(255),
+    post_title TEXT NOT NULL,
+    post_url TEXT NOT NULL UNIQUE,
+    post_excerpt TEXT,
+    detected_service_area detected_service_enum DEFAULT 'general',
+    ai_relevance_classification relevance_classification_enum DEFAULT 'ambiguous',
+    ai_reasoning TEXT,
+    status signal_status_enum DEFAULT 'new',
+    discovered_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_intent_signals_status ON intent_signals(status);
+CREATE INDEX IF NOT EXISTS idx_intent_signals_class ON intent_signals(ai_relevance_classification);

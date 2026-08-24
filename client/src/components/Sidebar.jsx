@@ -7,6 +7,8 @@ import {
   Eye, 
   Github, 
   ShieldCheck,
+  TrendingUp,
+  Radio,
   Settings, 
   LogOut,
   Zap
@@ -19,6 +21,8 @@ export default function Sidebar({ activeTab, setActiveTab, onLogout }) {
     { id: 'calendar', label: 'Calendar', icon: CalendarDays },
     { id: 'tracker', label: 'Tracker', icon: BarChart3 },
     { id: 'competitors', label: 'Competitor Research', icon: Eye },
+    { id: 'ad_intelligence', label: 'Ad Intelligence', icon: TrendingUp, badge: 'Longevity' },
+    { id: 'intent_signals', label: 'Intent Signals', icon: Radio, badge: 'RSS' },
     { id: 'verification', label: 'Verification', icon: ShieldCheck, badge: 'Audit' },
     { id: 'github', label: 'GitHub Sync', icon: Github },
     { id: 'settings', label: 'Settings', icon: Settings },

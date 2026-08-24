@@ -1,22 +1,23 @@
 # 🚀 Converge LinkedIn Content & Lead Engine (v2.0)
 
 > **Internal B2B Content Engine & Real-Time Lead Intelligence Hub** built for **Converge Digitals**.  
-> Designed to automate consistent, high-converting LinkedIn authority, offer, AI showcase, and case study posts, while autonomously discovering grounded B2B sales leads and archiving them live to Google Sheets.
+> Designed to automate consistent, high-converting LinkedIn authority, offer, AI showcase, and case study posts, while autonomously discovering grounded B2B sales leads, tracking competitor ad longevity, mining buyer intent signals, and archiving verified leads live to Google Sheets.
 
 ---
 
 ## 📸 Overview & Key Capabilities
 
-The **Converge LinkedIn Engine** is an end-to-end full-stack web application that combines **AI copywriting**, **autonomous market research**, **ad transparency intelligence**, **grounded B2B lead discovery**, and **real-time Google Sheets archiving**.
+The **Converge LinkedIn Engine** is an end-to-end full-stack web application combining:
 
 - 🎯 **5-Day Fixed Pillar Rotation:** Mon=Authority, Tue=Offer, Wed=Aradhya AI, Thu=Proof, Fri=Offer/Personal (aligned with LinkedIn's algorithm).
 - 🪝 **210-Character Hook Engineering:** Specifically optimizes lines 1–2 (the first ~210 characters) to maximize the `...see more` click-through rate.
 - 🛡️ **Strict Anti-AI Slop Filter:** Hard-bans generic AI jargon (`delve`, `game-changer`, `unleash`, `harness`, `secret sauce`) and emoji bullet point spam.
+- 📈 **Ad Intelligence & Longevity Pipeline (`/ad-intelligence`):** Tracks competitor ads on Meta & LinkedIn Ad Libraries. Calculates `days_active` and executes multimodal Gemini Vision analysis **ONLY after an ad has been active for 7+ days** (isolating proven winners!). Includes a 1-click post converter.
+- 📡 **Intent Signal Mining (`/signals`):** Scans public Reddit RSS feeds (`r/ecommerce`, `r/shopify`, `r/DTC`, `r/smallbusiness`, `r/Entrepreneur`) & search-grounded queries for real buyer pain points *before* prospects search for an agency.
+- 🛡️ **Independent Lead Verification Pipeline (`/verification`):** Runs 4 independent, deterministic checks (Places API cross-check, `google-libphonenumber` phone validation, 5s HTTP site reachability, and Scenario 1 claim check) BEFORE auto-pushing to Google Sheets.
 - 📍 **Grounded Google Maps Search Engine:** Uses direct Google Search Grounding (`tools: [{ google_search: {} }]`) to discover 100% real, operational businesses.
-- 🛑 **Operational & SMB Size Guard:** Automatically excludes permanently closed businesses and massive 50+ location corporate conglomerates, targeting high-converting boutique owners (5–30 team size).
-- 📊 **Real-Time Google Sheets Lead Archiver:** Automatically syncs verified leads to your live Google Sheet with single-quoted phone formatting (`'+971-4-330-0441'`) to eliminate math subtraction errors.
-- 🗑️ **7-Day Automatic Database Purge:** Automatically cleans up Supabase storage every Sunday night while Google Sheets preserves all historical leads permanently.
-- 💰 **100% Free AI Architecture ($0.00 Cost):** Powered by direct Google Gemini 3.5 Flash and free OpenRouter fallbacks (`google/gemini-2.0-flash-lite-001`, `meta-llama/llama-3.1-8b-instruct:free`).
+- 📊 **Real-Time Google Sheets Lead Archiver:** Automatically syncs verified leads (`verification_status = 'passed'`) to live Google Sheets with single-quoted phone formatting (`'+971-4-330-0441'`).
+- 💰 **100% Free Operating Architecture ($0.00 Cost):** Powered by direct Google Gemini 3.5 Flash, free public RSS feeds, and OpenRouter fallbacks.
 
 ---
 
@@ -27,7 +28,7 @@ Linkedin-tool/ (Repository Root)
 ├── client/                     <-- React 18 + Vite + Tailwind CSS Frontend
 │   ├── src/
 │   │   ├── components/         <-- Header, Sidebar, PasswordGate
-│   │   ├── pages/              <-- Dashboard, Generator, Calendar, Tracker, CompetitorResearch, GitHubSync
+│   │   ├── pages/              <-- Dashboard, Generator, Calendar, Tracker, CompetitorResearch, AdIntelligence, IntentSignals, Verification, GitHubSync
 │   │   ├── App.jsx
 │   │   └── main.jsx
 │   ├── index.html
@@ -37,14 +38,19 @@ Linkedin-tool/ (Repository Root)
 │   ├── config/
 │   │   ├── googleSheets.js     <-- Real-time Google Sheets & Webhook Sync Engine
 │   │   └── supabase.js         <-- Supabase Postgres Client Initializer
+│   ├── services/
+│   │   ├── leadVerifier.js     <-- Independent 4-Check Lead Verification Service
+│   │   ├── adIntelligence.js   <-- Competitor Ad Longevity Tracking & Vision Analysis
+│   │   └── intentMiner.js      <-- Reddit RSS & Grounded Intent Classifier
 │   ├── db/
 │   │   ├── schema.sql          <-- Full PostgreSQL Migration Schema & Enums
-│   │   └── seed.sql            <-- 40 Starter Content Ideas Across 4 Pillars
-│   ├── routes/                 <-- Generator, Competitors, Calendar, Tracker, GitHub, Crawler
-│   ├── cron.js                 <-- Node-Cron Daily Job Engine (8am, 2pm, 8pm & Sunday Purge)
+│   │   └── seed.sql            <-- Starter Content Ideas
+│   ├── routes/                 <-- Generator, Competitors, Calendar, Tracker, Verification, AdIntelligence, IntentSignals, GitHub, Crawler
+│   ├── cron.js                 <-- Node-Cron Daily Job Engine (8am, 10am, 2pm, 6pm, 8pm)
 │   ├── index.js                <-- Express Server Entry Point
 │   └── package.json
 ├── PRODUCT_REQUIREMENTS_DOCUMENT.md  <-- Complete v2.0 Production PRD
+├── ad-intelligence-and-intent-signals-prompts.md <-- Module Specifications
 └── README.md                   <-- System Documentation
 ```
 
@@ -73,53 +79,22 @@ The application strictly follows a **Dark, Hacker-Builder Editorial Aesthetic** 
 ## 🚀 Core Module Breakdown
 
 ### 1. Password Gate & Security (`/`)
-- Simple, password-protected team access for internal staff (2–5 people).
-- Hardcoded hashed check against `TEAM_PASSWORD` environment variable (`converge2026`).
+- Simple, password-protected team access for internal staff (`converge2026`).
 
 ### 2. Content Generator & AI Refinement Chat (`/generator`)
-- **Idea Cards:** Rotates 5 cards per pillar tagged by source (`From GitHub`, `Trending News`, `Competitor Ad`, `Client Result`, `Idea Bank`).
-- **3 AI Draft Variations:** Generates 3 distinct post angles powered by **OpenRouter** (`Llama 3.3 70B` primary, `DeepSeek V3` / `Gemini 3.5 Flash` fallbacks).
-- **210-Character Hook Obsession:**
-  - *Authority Hook:* Contrarian industry truth (*"Unpopular opinion: 90% of agency website redesigns fail because..."*).
-  - *Offer Hook:* Price anchor + turnaround + pain point (*"Web Dev starting at $1,500. 10-day turnaround. If your site load >3s, you're losing deals."*).
-  - *Aradhya Hook:* Transformation curiosity (*"We tested AI video shorts vs $5k studio shoots for 20 hours..."*).
-  - *Proof Hook:* Before ➔ Turning Point ➔ Outcome (*"Gelato's website took 3.4 seconds to load..."*).
-- **AI Refinement Drawer:** Slide-out chat drawer to refine drafts conversationally in real time.
+- **3 AI Draft Variations:** Powered by OpenRouter / Gemini with 210-character hook obsession & anti-AI slop filters. Includes real-time conversational chat refinement drawer.
 
-### 3. Content Calendar (`/calendar`)
-- 5-column Monday–Friday weekly grid view.
-- Status Badges: `Draft` (gray), `Ready` (amber), `Posted` (emerald).
-- Interactive detail modal allowing team members to edit copy, switch selected draft variations, attach post URLs, and mark posts as live.
+### 3. Competitor Ad Intelligence Pipeline (`/ad-intelligence`)
+- Tracks competitor ad longevity (`days_active`). Executes multimodal Gemini Vision analysis **only when days_active ≥ 7** to analyze proven converting ads. Includes 1-click post converter.
 
-### 4. Performance Tracker & Analytics (`/tracker`)
-- Editable posted metrics table: Impressions, Reactions, Comments, DMs Received, Lead Type (*International*, *Local*, *Unclear*), and Notes.
-- **3 Interactive SVG Analytics Charts:**
-  1. Average DMs per Content Pillar
-  2. Average DMs per Day of Week
-  3. 8-Week DM Conversion Trend
-- **Automated AI Strategy Engine:** Evaluates performance data and outputs actionable recommendations.
+### 4. Intent Signal Mining Hub (`/signals`)
+- Parses public Reddit RSS feeds (`r/ecommerce`, `r/shopify`, `r/smallbusiness`, `r/Entrepreneur`, `r/DTC`) and search queries for buyer intent signals with AI relevance classification (`genuine_intent`, `ambiguous`, `noise`).
 
-### 5. Grounded Competitor & Lead Intelligence (`/competitors`)
-- **Tab 1: Competitor Ad Libraries:** Discovers active agency competitors in US/Dubai/UK markets and extracts active ad hooks from Meta Ad Library, LinkedIn Ad Library, and Google Ads Transparency.
-- **Tab 2: Web Dev & Branding Leads:**
-  - **Scenario 1 (No Website Target):** Active Google Business profile (3.0-4.8★) with NO website listed.
-  - **Scenario 2 (Flawed Website Target):** Verified website with 2–3 concrete pitchable technical flaws (slow mobile load speed >3.5s, non-responsive desktop-first UI, missing WhatsApp CTA).
-- **Tab 3: Aradhya AI Video Leads (D2C & Visual Brands):** Target independent D2C skincare, medspas, and luxury real estate running static image Meta ads or lacking 4K video spokespersons.
-- **Strict Anti-Hallucination Guard:** Hard bans synthetic domain generation (`www.businessname.com`) and guessed emails (`info@domain.com`). Unlisted emails default to `'Unlisted'`.
-- **Operational & SMB Size Filters:** Automatically rejects permanently/temporarily closed businesses and 50+ location corporate conglomerates, focusing exclusively on SMB owners (5–30 team size).
+### 5. Independent Lead Verification Hub (`/verification`)
+- 4-check deterministic pipeline (Places API cross-check, `google-libphonenumber`, 5s HTTP reachability, Scenario 1 claim check). Surfaces `partial` and `failed` leads for manual review.
 
 ### 6. Real-Time Google Sheets Lead Archiver
-- Automatically pushes discovered leads to your live Google Sheet (`17MyAQ2u4fJeT9U_VKV4SndeqxjJ0aYH1F86VequANAQ`) via **Google Apps Script Webhook** or **Google Service Account**.
-- **Universal Phone Sanitizer:** Formats phone numbers as single-quoted plain text (`'+971-4-330-0441'`) to eliminate math subtraction errors (`-410`) in Google Sheets.
-
-### 7. GitHub Org Sync (`/github`)
-- Read-only integration using GitHub Personal Access Token (`GITHUB_PAT`).
-- Crawls repo metadata: repository names, tech stack arrays (`[Next.js, Tailwind, Supabase, Stripe]`), README summaries, and live demo links.
-- 🛡️ **Zero Code Risk:** Never reads, downloads, or exposes proprietary source code or secrets — metadata only!
-
-### 8. Always-On Background Crawlers & 7-Day Purge (`server/cron.js`)
-- Runs automatically via `node-cron` **3 times a day** (8:00 AM, 2:00 PM, 8:00 PM) for automated trend, competitor, and lead discovery.
-- **Sunday 11:59 PM Auto Purge:** Automatically deletes leads older than 7 days from Supabase (`DELETE FROM leads WHERE created_at < NOW() - INTERVAL '7 days';`) to keep Supabase storage lightweight while Google Sheets preserves historical data permanently.
+- Pushes verified leads (`passed`) to Google Sheets with single-quoted phone formatting (`'+971-4-330-0441'`).
 
 ---
 
@@ -131,7 +106,7 @@ The application strictly follows a **Dark, Hacker-Builder Editorial Aesthetic** 
 - Google AI Studio Gemini API key (Free Tier)
 
 ### 1. Environment Setup
-Create a `.env` file inside the `server/` directory:
+Create a `.env` file inside `server/`:
 
 ```env
 PORT=5000

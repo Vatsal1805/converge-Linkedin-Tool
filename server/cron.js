@@ -384,16 +384,34 @@ export async function runWeeklyDatabasePurge() {
   console.log('[Cron Job] Weekly 7-Day Lead Purge is PAUSED during current testing window (0 leads deleted).');
   return { purgedCount: 0, status: 'paused_for_testing' };
 }
-// Schedule Cron Jobs: Runs 3x Daily (8:00 AM, 2:00 PM, 8:00 PM) + Sunday Night DB Purge
-export function initScheduledJobs() {
-  console.log('[Cron Engine] Initializing automated background schedules (8am, 2pm, 8pm)...');
+import { runDailyAdTrackingJob, runDelayedAdAnalysisJob } from './services/adIntelligence.js';
+import { runRedditRssJob, runGroundedSearchIntentJob } from './services/intentMiner.js';
 
+// Schedule Cron Jobs: Runs 3x Daily (8:00 AM, 2:00 PM, 8:00 PM) + Ad Intelligence & Intent Mining
+export function initScheduledJobs() {
+  console.log('[Cron Engine] Initializing automated background schedules (8am, 2pm, 8pm, 10am, 6pm)...');
+
+  // Main Lead & Trend Discovery (8:00 AM, 2:00 PM, 8:00 PM) + Reddit RSS Intent Mining
   cron.schedule('0 8,14,20 * * *', async () => {
-    console.log('[Cron Engine] Triggering 3x daily automated crawl routine...');
+    console.log('[Cron Engine] Triggering automated crawl routine & RSS intent mining...');
     await runFullAutoCrawlRoutine();
+    await runRedditRssJob();
   });
 
-  // Weekly Sunday Night DB Cleanup at 11:59 PM
+  // Daily Ad Longevity Tracking Job at 10:00 AM
+  cron.schedule('0 10 * * *', async () => {
+    console.log('[Cron Engine] Triggering 10:00 AM Daily Competitor Ad Tracking Job...');
+    await runDailyAdTrackingJob();
+  });
+
+  // Daily Delayed Multimodal Ad Analysis Job at 6:00 PM (days_active >= 7)
+  cron.schedule('0 18 * * *', async () => {
+    console.log('[Cron Engine] Triggering 6:00 PM Daily Delayed Ad Analysis Job...');
+    await runDelayedAdAnalysisJob();
+    await runGroundedSearchIntentJob();
+  });
+
+  // Weekly Sunday Night DB Cleanup at 11:59 PM (PAUSED for testing)
   cron.schedule('59 23 * * 0', async () => {
     console.log('[Cron Engine] Triggering Sunday Night 7-Day Lead Database Cleanup...');
     await runWeeklyDatabasePurge();
