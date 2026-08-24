@@ -206,7 +206,30 @@ router.post('/cron/run-full', async (req, res) => {
   try {
     const { runFullAutoCrawlRoutine } = await import('../cron.js');
     const result = await runFullAutoCrawlRoutine();
-    return res.json(result);
+    return res.status(200).json({
+      success: true,
+      time: new Date().toISOString(),
+      leads: (result.webLeadsAdded || 0) + (result.aradhyaLeadsAdded || 0),
+      competitors: result.competitorsAdded || 0,
+      ads: result.adsTracked || 0
+    });
+  } catch (err) {
+    console.error('Error running full auto crawl routine:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.get('/cron/run-full', async (req, res) => {
+  try {
+    const { runFullAutoCrawlRoutine } = await import('../cron.js');
+    const result = await runFullAutoCrawlRoutine();
+    return res.status(200).json({
+      success: true,
+      time: new Date().toISOString(),
+      leads: (result.webLeadsAdded || 0) + (result.aradhyaLeadsAdded || 0),
+      competitors: result.competitorsAdded || 0,
+      ads: result.adsTracked || 0
+    });
   } catch (err) {
     console.error('Error running full auto crawl routine:', err.message);
     return res.status(500).json({ success: false, error: err.message });
