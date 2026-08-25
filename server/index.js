@@ -35,9 +35,9 @@ app.use('/api/intent-signals', intentSignalsRoutes);
 // Initialize Automated Background Cron Jobs
 initScheduledJobs();
 
-// Health Check
-app.get('/api/health', (req, res) => {
-  res.json({
+// Lightweight Pre-Warm Health Check Routes
+app.get(['/health', '/api/health'], (req, res) => {
+  res.status(200).json({
     status: 'ok',
     app: 'Converge LinkedIn Content Engine API',
     timestamp: new Date().toISOString(),
