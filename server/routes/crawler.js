@@ -202,22 +202,21 @@ router.get('/cron/status', async (req, res) => {
 });
 
 // 3. Trigger Full Auto Crawl Routine route: POST & GET /api/cron/run-full
-const handleCronTrigger = async (req, res) => {
-  // Respond immediately with ultra-tiny 25-byte JSON response
-  res.status(200).json({ ok: true, status: 'triggered' });
+const handleCronTrigger = (req, res) => {
+  // 1. Flush HTTP 204 No Content response IMMEDIATELY (< 0.1s, 0 bytes body)
+  res.status(204).end();
 
-  // Execute full crawl routine asynchronously in background
-  try {
-    const { runFullAutoCrawlRoutine } = await import('../cron.js');
-    console.log('[Cron Webhook] Triggered via cron-job.org. Executing crawl routine in background...');
-    runFullAutoCrawlRoutine().then(res => {
-      console.log('[Cron Webhook] Background crawl routine finished successfully:', res);
-    }).catch(err => {
-      console.error('[Cron Webhook] Error in background crawl routine:', err.message);
-    });
-  } catch (err) {
-    console.error('[Cron Webhook Import Error]:', err.message);
-  }
+  // 2. Run crawl routine asynchronously on next event loop tick
+  setImmediate(async () => {
+    try {
+      const { runFullAutoCrawlRoutine } = await import('../cron.js');
+      console.log('[Cron Webhook] Triggered via cron-job.org. Executing crawl routine in background...');
+      const result = await runFullAutoCrawlRoutine();
+      console.log('[Cron Webhook] Background crawl routine finished successfully:', result);
+    } catch (err) {
+      console.error('[Cron Webhook Error]:', err.message);
+    }
+  });
 };
 
 router.post('/cron/run-full', handleCronTrigger);
