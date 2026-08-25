@@ -36,7 +36,15 @@ app.use('/api/intent-signals', intentSignalsRoutes);
 initScheduledJobs();
 
 // Lightweight Pre-Warm Health Check Routes
-app.get(['/health', '/api/health'], (req, res) => {
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    app: 'Converge LinkedIn Content Engine API',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
     app: 'Converge LinkedIn Content Engine API',
