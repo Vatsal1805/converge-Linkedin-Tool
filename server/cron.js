@@ -330,21 +330,38 @@ Return PURE JSON ONLY: {"leads": [{"business_name": "...", "niche": "${selectedW
   return { webAdded, aradhyaAdded };
 }
 
+import { logJobStart, logJobEnd } from './services/cronLogger.js';
+
 // Master Function: Run All Crawlers Immediately
 export async function runFullAutoCrawlRoutine() {
   console.log('[Cron Engine] Starting full automated crawl routine...');
   lastCrawlTime = new Date().toISOString();
   lastCrawlStatus = 'Crawling in progress...';
 
-  try {
-    const trendRes = await runScheduledCrawl();
-    const compRes = await runDailyCompetitorCrawl();
-    const leadRes = await runDailyLeadCrawl();
-    const adRes = await runDailyAdTrackingJob();
-    const adAnalysisRes = await runDelayedAdAnalysisJob();
-    const rssRes = await runRedditRssJob();
+  const { logId, startTime } = await logJobStart('run-full');
+  let hasPartialError = false;
+  let firstErrorMsg = null;
 
+  try {
+    const trendRes = await runScheduledCrawl().catch(e => { hasPartialError = true; firstErrorMsg = firstErrorMsg || e.message; return { addedCount: 0 }; });
+    const compRes = await runDailyCompetitorCrawl().catch(e => { hasPartialError = true; firstErrorMsg = firstErrorMsg || e.message; return { added: 0 }; });
+    const leadRes = await runDailyLeadCrawl().catch(e => { hasPartialError = true; firstErrorMsg = firstErrorMsg || e.message; return { webAdded: 0, aradhyaAdded: 0 }; });
+    const adRes = await runDailyAdTrackingJob().catch(e => { hasPartialError = true; firstErrorMsg = firstErrorMsg || e.message; return { trackedCount: 0 }; });
+    const adAnalysisRes = await runDelayedAdAnalysisJob().catch(e => { hasPartialError = true; firstErrorMsg = firstErrorMsg || e.message; return { analyzedCount: 0 }; });
+    const rssRes = await runRedditRssJob().catch(e => { hasPartialError = true; firstErrorMsg = firstErrorMsg || e.message; return { addedCount: 0 }; });
+
+    const totalRecords = (trendRes?.addedCount || 0) + 
+                         (compRes?.added || 0) + 
+                         (leadRes?.webAdded || 0) + 
+                         (leadRes?.aradhyaAdded || 0) + 
+                         (adRes?.trackedCount || 0) + 
+                         (rssRes?.addedCount || 0);
+
+    const finalStatus = hasPartialError ? 'partial' : 'success';
     lastCrawlStatus = `Success (Last run: ${new Date().toLocaleTimeString()})`;
+
+    await logJobEnd(logId, finalStatus, totalRecords, firstErrorMsg, startTime);
+
     return {
       success: true,
       lastCrawlTime,
@@ -359,6 +376,7 @@ export async function runFullAutoCrawlRoutine() {
   } catch (err) {
     console.error('[Cron Routine Error]:', err.message);
     lastCrawlStatus = `Error: ${err.message}`;
+    await logJobEnd(logId, 'failed', 0, err.message, startTime);
     return { success: false, error: err.message };
   }
 }

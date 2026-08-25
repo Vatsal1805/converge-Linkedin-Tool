@@ -189,12 +189,20 @@ router.get('/crawler/run-now', async (req, res) => {
   }
 });
 
-// 2. Cron Audit Status route: GET /api/cron/status
+// 2. Cron Audit Status route: GET /api/cron/status (returns recent 20 rows from cron_run_logs)
 router.get('/cron/status', async (req, res) => {
   try {
+    const { getRecentCronLogs } = await import('../services/cronLogger.js');
     const { getCronStatusAudit } = await import('../cron.js');
-    const status = await getCronStatusAudit();
-    return res.json(status);
+    const logs = await getRecentCronLogs(20);
+    const audit = await getCronStatusAudit();
+
+    return res.json({
+      success: true,
+      lastRun: logs?.[0] || null,
+      logs: logs || [],
+      audit
+    });
   } catch (err) {
     console.error('Error getting cron status:', err.message);
     return res.status(500).json({ success: false, error: err.message });
