@@ -1,17 +1,8 @@
+console.log(`[Process Start] Initializing lightweight Express process at ${new Date().toISOString()}`);
+
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { supabase } from './config/supabase.js';
-import generatorRoutes from './routes/generator.js';
-import calendarRoutes from './routes/calendar.js';
-import trackerRoutes from './routes/tracker.js';
-import competitorRoutes from './routes/competitors.js';
-import githubRoutes from './routes/github.js';
-import crawlerRoutes from './routes/crawler.js';
-import verificationRoutes from './routes/verification.js';
-import adIntelligenceRoutes from './routes/adIntelligence.js';
-import intentSignalsRoutes from './routes/intentSignals.js';
-import { initScheduledJobs } from './cron.js';
 
 dotenv.config();
 
@@ -21,34 +12,30 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Mount API Routes
-app.use('/api', generatorRoutes);
-app.use('/api', calendarRoutes);
-app.use('/api', trackerRoutes);
-app.use('/api', competitorRoutes);
-app.use('/api', githubRoutes);
-app.use('/api', crawlerRoutes);
-app.use('/api/verification', verificationRoutes);
-app.use('/api/ad-intelligence', adIntelligenceRoutes);
-app.use('/api/intent-signals', intentSignalsRoutes);
+let isFullyMounted = false;
 
-// Initialize Automated Background Cron Jobs
-initScheduledJobs();
+// 1. Root & Lightweight Health Check Routes (Registered IMMEDIATELY)
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'Converge LinkedIn Content Engine',
+    timestamp: new Date().toISOString()
+  });
+});
 
-// Lightweight Pre-Warm Health Check Routes
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
-    app: 'Converge LinkedIn Content Engine API',
-    timestamp: new Date().toISOString(),
+    service: 'Converge LinkedIn Content Engine API',
+    timestamp: new Date().toISOString()
   });
 });
 
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
-    app: 'Converge LinkedIn Content Engine API',
-    timestamp: new Date().toISOString(),
+    service: 'Converge LinkedIn Content Engine API',
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -80,9 +67,55 @@ app.get('/api/status', (req, res) => {
     openRouterConfigured: Boolean(process.env.OPENROUTER_API_KEY && !process.env.OPENROUTER_API_KEY.includes('placeholder')),
     perplexityConfigured: Boolean(process.env.PERPLEXITY_API_KEY && !process.env.PERPLEXITY_API_KEY.includes('placeholder')),
     githubConfigured: Boolean(process.env.GITHUB_PAT && !process.env.GITHUB_PAT.includes('placeholder')),
+    isFullyMounted
   });
 });
 
+// 2. Unmounted Fallback Middleware for API routes during brief startup window
+app.use('/api', (req, res, next) => {
+  if (!isFullyMounted) {
+    return res.status(503).json({
+      status: 'initializing',
+      message: 'Server is still starting up, please retry in a few seconds'
+    });
+  }
+  next();
+});
+
+// 3. Open Port IMMEDIATELY
 app.listen(PORT, () => {
-  console.log(`[Converge LinkedIn Engine] Server running on port ${PORT}`);
+  console.log(`[Server Listening] Port ${PORT} open at ${new Date().toISOString()}`);
+
+  // 4. Lazy-load heavy route modules and background cron jobs AFTER port is open
+  setImmediate(async () => {
+    try {
+      const { default: generatorRoutes } = await import('./routes/generator.js');
+      const { default: calendarRoutes } = await import('./routes/calendar.js');
+      const { default: trackerRoutes } = await import('./routes/tracker.js');
+      const { default: competitorRoutes } = await import('./routes/competitors.js');
+      const { default: githubRoutes } = await import('./routes/github.js');
+      const { default: crawlerRoutes } = await import('./routes/crawler.js');
+      const { default: verificationRoutes } = await import('./routes/verification.js');
+      const { default: adIntelligenceRoutes } = await import('./routes/adIntelligence.js');
+      const { default: intentSignalsRoutes } = await import('./routes/intentSignals.js');
+      const { initScheduledJobs } = await import('./cron.js');
+
+      app.use('/api', generatorRoutes);
+      app.use('/api', calendarRoutes);
+      app.use('/api', trackerRoutes);
+      app.use('/api', competitorRoutes);
+      app.use('/api', githubRoutes);
+      app.use('/api', crawlerRoutes);
+      app.use('/api/verification', verificationRoutes);
+      app.use('/api/ad-intelligence', adIntelligenceRoutes);
+      app.use('/api/intent-signals', intentSignalsRoutes);
+
+      initScheduledJobs();
+
+      isFullyMounted = true;
+      console.log(`[Routes Mounted] All routes mounted & cron initialized at ${new Date().toISOString()}`);
+    } catch (err) {
+      console.error('Error during lazy route/cron initialization:', err);
+    }
+  });
 });
