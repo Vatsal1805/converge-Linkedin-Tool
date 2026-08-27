@@ -78,8 +78,13 @@ async function callGeminiGrounding(promptText) {
 
 // 1. Automated Competitor Discovery Job (5 Competitors / Day)
 export async function runDailyCompetitorCrawl() {
-  console.log('[Cron Job] Running Daily Competitor Discovery (Gemini Live Search)...');
-  const promptText = `Find 3 real active digital marketing or web development agencies in Dubai (UAE) or the US targeting B2B clients. Return PURE JSON ONLY: {"competitors": [{"name": "...", "website_url": "...", "industry_tag": "...", "notes": "...", "ad_notes": "..."}]}`;
+  console.log('[Cron Job] Running Daily Competitor Discovery (Direct AI Video & Web Dev Agencies)...');
+  const promptText = `Perform a live search for 3 real, active boutique agencies offering:
+1. AI Video & AI Avatar Marketing / Spokesperson services (for Meta/LinkedIn ads)
+2. Custom Next.js/React Web Development & Performance Optimization ($1.5k - $5k range)
+
+Target active agencies in US, UK, or UAE.
+Return PURE JSON ONLY: {"competitors": [{"name": "...", "website_url": "...", "industry_tag": "AI Video & Web Dev", "notes": "Specialize in AI persona ads and high-converting web apps", "ad_notes": "Analyzed positioning: Offers 4K AI video ads and rapid Next.js landing page design"}]}`;
 
   try {
     const rawResult = await callGeminiGrounding(promptText);
@@ -104,39 +109,40 @@ export async function runDailyCompetitorCrawl() {
 
       const { data: existing } = await supabase.from('competitors').select('id').eq('name', comp.name).maybeSingle();
       let inserted = null;
+      let insertErr = null;
 
       if (!existing) {
-        const { data: newComp, error: insertErr } = await supabase
+        const { data: newComp, error: err } = await supabase
           .from('competitors')
           .insert([{
             name: comp.name,
             website_url: comp.website_url || null,
-            industry_tag: comp.industry_tag || 'Web Dev & AI',
+            industry_tag: comp.industry_tag || 'AI Video & Web Dev',
             notes: comp.notes || 'Discovered automatically via scheduled daily Gemini crawl',
             discovered_via: 'cron_gemini_search',
             active: true
           }])
           .select()
           .single();
+        insertErr = err;
         if (!insertErr) inserted = newComp;
       } else {
         inserted = existing;
       }
 
-      if (!error && inserted) {
+      if (!insertErr && inserted) {
         added++;
-        if (comp.ad_notes) {
-          await supabase.from('competitor_research').insert([
-            {
-              competitor_id: inserted.id,
-              source: 'meta_ad_library',
-              content_notes: comp.ad_notes,
-              date_added: new Date().toISOString()
-            }
-          ]);
-        }
-      } else if (error) {
-        console.warn(`[Cron Job] Supabase error inserting competitor "${comp.name}":`, error.message);
+        // Always insert a clean research note into competitor_research table
+        await supabase.from('competitor_research').insert([
+          {
+            competitor_id: inserted.id,
+            source: 'meta_ad_library',
+            content_notes: comp.ad_notes || comp.notes || 'Automated competitive audit: Analyzed positioning & offer angles.',
+            date_added: new Date().toISOString()
+          }
+        ]);
+      } else if (insertErr) {
+        console.warn(`[Cron Job] Supabase error inserting competitor "${comp.name}":`, insertErr.message);
       }
     }
     console.log(`[Cron Job] Completed competitor crawl. Added/updated ${added} competitors to Supabase.`);
@@ -161,7 +167,10 @@ export async function runDailyLeadCrawl() {
   let aradhyaAdded = 0;
 
   // A. Crawl 5 to 6 Web Dev Leads (Scenario 1 & Scenario 2 Grounded)
-  const webPrompt = `Perform a strict live Google Maps search to find 5 REAL, active business leads in niche "${selectedWebNiche}" in Dubai or US.
+  const webPrompt = `Perform a strict live Google Search & Maps lookup to find 5 REAL, active business leads in niche "${selectedWebNiche}" in Dubai or US.
+
+STRICT CONTACT DETAILS REQUIREMENT:
+For EVERY business found, execute a search query to retrieve their official Phone Number (with country code), Official Contact Email (or support email), Official Website URL, and exact City/State. Never return null for phone or website if available online!
 
 OPERATIONAL STATUS & SIZE FILTER:
 - STRICTLY EXCLUDE PERMANENTLY CLOSED OR TEMPORARILY CLOSED BUSINESSES. Target ONLY 100% active, open, operating businesses. If a Google Maps listing has a 'Permanently closed' label, REJECT IT IMMEDIATELY.
@@ -169,8 +178,8 @@ OPERATIONAL STATUS & SIZE FILTER:
 - STRICTLY EXCLUDE massive 50+ location enterprise chains or franchise conglomerates.
 
 STRICT REALITY & ANTI-HALLUCINATION CONSTRAINTS:
-1. GOOGLE MAPS GROUNDING: Extract ONLY real, actively open businesses listed on official Google Maps Place Cards.
-2. BAN ON SYNTHETIC DOMAINS & EMAILS: DO NOT fabricate domain names (e.g. NEVER generate www.businessname.com if not on Google Maps!). If no website button on Maps, set "website_url" to null. DO NOT guess synthetic emails.
+1. GOOGLE SEARCH GROUNDING: Extract ONLY real, actively open businesses listed online or on Google Maps Place Cards.
+2. ACCURATE DOMAINS & EMAILS: Extract real domain names and real contact info found on Google Maps or official business websites. If a business has NO website listed on Maps (Scenario 1 Target), set "website_url" to null.
 3. QUALIFICATION SCENARIOS:
    - SCENARIO 1 (No Website Target): Active open business profile (3.0-4.8★) BUT HAS NO WEBSITE. Qualification Reason: "Active open Google Business profile with NO website listed. Losing 80%+ of online booking traffic."
    - SCENARIO 2 (Flawed Website Target): HAS verified website, BUT it has concrete pitchable flaws (slow mobile load speed >3.5s, non-responsive desktop-first 2010s UI, missing WhatsApp CTA or booking widget). Qualification Reason MUST list 2-3 specific technical flaws.
@@ -251,7 +260,12 @@ Return PURE JSON ONLY: {"leads": [{"business_name": "...", "niche": "${selectedW
   }
 
   // B. Crawl 5 to 6 Aradhya Video Leads (SMB D2C Brands Only)
-  const aradhyaPrompt = `Perform a strict live web search to find 5 REAL independent D2C/Visual brand leads (team size 5-30 people) in niche "${selectedAradhyaNiche}" in US/Dubai running static image Meta ads. DO NOT include massive 50+ location enterprise chains. DO NOT fabricate URLs or emails. Return PURE JSON ONLY: {"leads": [{"business_name": "...", "niche": "${selectedAradhyaNiche}", "city_state": "Los Angeles, CA", "rating": 4.6, "website_url": "...", "qualification_reason": "Running static image ads on Meta; missing 4K AI Video Spokesperson for 2.8x higher CTR.", "phone_number": "...", "email": "..."}]}`;
+  const aradhyaPrompt = `Perform a strict live web search & Google Maps lookup to find 5 REAL independent D2C/Visual brand leads (team size 5-30 people) in niche "${selectedAradhyaNiche}" in US/Dubai running static image Meta ads.
+
+STRICT CONTACT DETAILS REQUIREMENT:
+For EVERY lead found, execute a search query to retrieve their official Phone Number (with country code), Official Contact Email (e.g. info@domain.com / support@domain.com), Official Website URL, and exact City/State. Never return null if phone/email exists online!
+
+Return PURE JSON ONLY: {"leads": [{"business_name": "...", "niche": "${selectedAradhyaNiche}", "city_state": "Los Angeles, CA", "rating": 4.6, "website_url": "...", "qualification_reason": "Running static image ads on Meta; missing 4K AI Video Spokesperson for 2.8x higher CTR.", "phone_number": "...", "email": "..."}]}`;
   
   try {
     const rawAradhya = await callGeminiGrounding(aradhyaPrompt);

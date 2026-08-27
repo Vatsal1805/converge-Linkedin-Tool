@@ -148,6 +148,105 @@ async function checkNoWebsiteClaimVerified(lead, placeId) {
 }
 
 /**
+ * 2-Tier Contact Details Auto-Enrichment Fallback
+ * Fills in missing phone numbers, emails, and website URLs before running verification.
+ */
+async function enrichMissingLeadContactDetails(lead, placeId) {
+  const needsPhone = !lead.phone_number || lead.phone_number === 'Unlisted' || lead.phone_number.toLowerCase() === 'no phone';
+  const needsWebsite = !lead.website_url || lead.website_url.toLowerCase() === 'no website';
+
+  if (!needsPhone && !needsWebsite) return lead; // Already full contact details!
+
+  const placesApiKey = process.env.GOOGLE_PLACES_API_KEY;
+
+  // Tier 1: Google Places API Details Lookup (If API key set in .env)
+  if (placesApiKey && !placesApiKey.includes('placeholder') && placeId) {
+    try {
+      console.log(`[Lead Enrichment] Tier 1: Querying Google Places API Details for "${lead.business_name}"...`);
+      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=formatted_phone_number,international_phone_number,website,url&key=${placesApiKey}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        const details = data.result || {};
+
+        if (needsPhone && (details.formatted_phone_number || details.international_phone_number)) {
+          lead.phone_number = details.international_phone_number || details.formatted_phone_number;
+          console.log(`[Lead Enrichment] Tier 1 Success: Found phone "${lead.phone_number}" for "${lead.business_name}"`);
+        }
+
+        if (needsWebsite && details.website) {
+          lead.website_url = details.website;
+          console.log(`[Lead Enrichment] Tier 1 Success: Found website "${lead.website_url}" for "${lead.business_name}"`);
+        }
+
+        if (details.url) {
+          lead.google_map_url = details.url;
+        }
+
+        // Update enriched lead in Supabase
+        await supabase.from('leads').update({
+          phone_number: lead.phone_number,
+          website_url: lead.website_url,
+          google_map_url: lead.google_map_url
+        }).eq('id', lead.id);
+
+        return lead;
+      }
+    } catch (err) {
+      console.warn('[Places API Details Warning]:', err.message);
+    }
+  }
+
+  // Tier 2: Targeted Gemini Grounding Contact Search Fallback
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (geminiKey && !geminiKey.includes('placeholder')) {
+    try {
+      console.log(`[Lead Enrichment] Tier 2: Running Gemini Search Grounding contact fallback for "${lead.business_name}"...`);
+      const promptText = `Find official Phone Number with country code, Official Contact Email, and Official Website for "${lead.business_name}" in "${lead.city_state || 'Dubai, UAE'}". Return PURE JSON ONLY: {"phone_number": "...", "email": "...", "website_url": "..."}`;
+      
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptText }] }],
+          tools: [{ google_search: {} }]
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const match = text.replace(/```json|```/g, '').trim().match(/\{[\s\S]*\}/);
+        if (match) {
+          const parsed = JSON.parse(match[0]);
+          if (needsPhone && parsed.phone_number && !parsed.phone_number.includes('...')) {
+            lead.phone_number = parsed.phone_number;
+            console.log(`[Lead Enrichment] Tier 2 Success: Gemini found phone "${lead.phone_number}" for "${lead.business_name}"`);
+          }
+          if (needsWebsite && parsed.website_url && !parsed.website_url.includes('...')) {
+            lead.website_url = parsed.website_url;
+          }
+          if (parsed.email && !lead.email) {
+            lead.email = parsed.email;
+          }
+
+          // Update enriched lead in Supabase
+          await supabase.from('leads').update({
+            phone_number: lead.phone_number,
+            website_url: lead.website_url,
+            email: lead.email
+          }).eq('id', lead.id);
+        }
+      }
+    } catch (err) {
+      console.warn('[Gemini Enrichment Warning]:', err.message);
+    }
+  }
+
+  return lead;
+}
+
+/**
  * Main Lead Verification Pipeline
  * Runs 4 independent, deterministic checks right after lead creation
  */
@@ -170,6 +269,9 @@ export async function verifyLead(lead) {
     if (!placesMatch) {
       details.failure_reasons.push(placesRes.reason || 'Could not find confident match on Google Places');
     }
+
+    // Auto-Enrich missing phone/website via Tier 1 Places API or Tier 2 Gemini Grounding
+    lead = await enrichMissingLeadContactDetails(lead, placesRes.placeId);
 
     // 2. Check b: Phone Validation
     const phoneValid = checkPhoneValid(lead);

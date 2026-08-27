@@ -134,19 +134,85 @@ async function fetchRedditTrends() {
   return items;
 }
 
-// Main Crawler Execution Function
+// Main Crawler Execution Function: Live Google Search News Grounding -> idea_bank
 export async function runScheduledCrawl() {
-  console.log('[Scheduled Crawler] Running trend & founder intent crawl...');
+  console.log('[Scheduled Crawler] Running live Google News & AI trend crawl...');
 
-  const redditItems = await fetchRedditTrends();
+  const geminiKey = process.env.GEMINI_API_KEY;
   let addedCount = 0;
 
+  if (geminiKey && !geminiKey.includes('placeholder')) {
+    try {
+      const promptText = `Perform a live Google Search for today's top 3 trending news items in:
+1. B2B AI Video & AI Persona Marketing
+2. High-Performance Web Design, PageSpeed, and Conversion Rate Optimization
+3. High-Converting Meta/LinkedIn Ad Hooks & Visual Strategies
+
+For each trend found, reframe it into an agency perspective for Converge Digitals (offering Web Dev, AI Video Avatars, and Marketing).
+Return PURE JSON ONLY:
+{
+  "ideas": [
+    {
+      "pillar": "authority",
+      "idea_text": "...",
+      "source_ref": "Live AI & Marketing News"
+    }
+  ]
+}`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptText }] }],
+          tools: [{ google_search: {} }]
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          const cleanText = text.replace(/```json|```/g, '').trim();
+          const match = cleanText.match(/\{[\s\S]*\}/);
+          if (match) {
+            const parsed = JSON.parse(match[0]);
+            for (const item of (parsed.ideas || [])) {
+              if (!item.idea_text) continue;
+
+              const { data: existing } = await supabase
+                .from('idea_bank')
+                .select('id')
+                .eq('idea_text', item.idea_text)
+                .maybeSingle();
+
+              if (!existing) {
+                await supabase.from('idea_bank').insert([
+                  {
+                    pillar: item.pillar || 'authority',
+                    idea_text: item.idea_text,
+                    source: 'news_trend',
+                    created_at: new Date().toISOString()
+                  }
+                ]);
+                addedCount++;
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Live News Crawl Warning]:', err.message);
+    }
+  }
+
+  // Fallback to Reddit RSS Trends
+  const redditItems = await fetchRedditTrends();
   for (const item of redditItems) {
     try {
       const converted = await convertTrendToConvergeIdea(item.title, item.summary, item.domain);
 
       if (converted && converted.idea_text) {
-        // Deduplicate: Check if similar idea exists in idea_bank in last 7 days
         const { data: existing } = await supabase
           .from('idea_bank')
           .select('id')
@@ -158,20 +224,20 @@ export async function runScheduledCrawl() {
             {
               pillar: converted.pillar || 'authority',
               idea_text: converted.idea_text,
-              source: 'crawler_news',
-              times_used: 0,
+              source: 'reddit',
+              created_at: new Date().toISOString()
             }
           ]);
           addedCount++;
         }
       }
     } catch (err) {
-      console.error('[Crawler Item Insert Error]:', err.message);
+      console.warn('[Reddit Trend Insert Error]:', err.message);
     }
   }
 
-  console.log(`[Scheduled Crawler] Finished. Added ${addedCount} fresh sales-driven ideas to idea_bank.`);
-  return { addedCount, totalCrawled: redditItems.length };
+  console.log(`[Scheduled Crawler] Completed trend crawl. Inserted ${addedCount} new ideas into idea_bank.`);
+  return { addedCount };
 }
 
 // 1. Manual trigger route: GET /api/crawler/run-now
