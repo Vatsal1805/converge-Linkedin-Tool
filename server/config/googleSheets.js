@@ -64,6 +64,16 @@ export async function syncLeadToGoogleSheet(lead) {
       await doc.loadInfo();
 
       const sheet = doc.sheetsByIndex[0];
+      
+      // Auto-write Header Row if sheet is brand new/empty!
+      const rows = await sheet.getRows();
+      if (sheet.rowCount <= 1 && rows.length === 0) {
+        console.log('[Google Sheets API] Sheet is empty. Automatically writing Header Row...');
+        await sheet.setHeaderRow([
+          'Date', 'Type', 'Business Name', 'Niche', 'Location', 'Rating', 'Google Maps URL', 'Phone', 'Email', 'Website URL', 'Qualification Reason'
+        ]);
+      }
+
       await sheet.addRow(leadRow);
 
       console.log(`[Google Sheets API] Successfully appended "${lead.business_name}" to Google Sheet.`);
