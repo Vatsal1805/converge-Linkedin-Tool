@@ -30,7 +30,7 @@ export async function syncLeadToGoogleSheet(lead) {
   const sheetId = process.env.GOOGLE_SHEET_ID;
   const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const privateKey = process.env.GOOGLE_PRIVATE_KEY ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n') : null;
-  const webhookUrl = process.env.GOOGLE_SHEETS_WEBHOOK_URL;
+  const webhookUrl = process.env.GOOGLE_SHEETS_WEBHOOK_URL || 'https://script.google.com/macros/s/AKfycbzyosOmbfPvIhEJBYVyk-kr0SyxDrrAhEnq33KeYCdxc-PASNHv-1A0287UrtEpi2bc/exec';
 
   const cleanPhone = formatUniversalPhoneNumber(lead.phone_number);
 
