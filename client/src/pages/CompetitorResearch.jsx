@@ -25,9 +25,12 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : '';
 
-// Verified Global Cities Preset for Autocomplete
+// Global World Cities Preset for Autocomplete
 const VERIFIED_LOCATIONS = [
   'Dubai, UAE',
+  'Delhi, India',
+  'Mumbai, India',
+  'Bengaluru, India',
   'Miami, FL, USA',
   'London, UK',
   'Los Angeles, CA, USA',
@@ -37,8 +40,9 @@ const VERIFIED_LOCATIONS = [
   'San Francisco, CA, USA',
   'Toronto, Canada',
   'Sydney, Australia',
-  'Mumbai, India',
+  'Melbourne, Australia',
   'Singapore',
+  'Tokyo, Japan',
   'Paris, France',
   'Berlin, Germany'
 ];
@@ -89,12 +93,38 @@ export default function CompetitorResearch({ setActiveTab }) {
   const [showAddCatInput, setShowAddCatInput] = useState(false);
   const [newCatName, setNewCatName] = useState('');
 
-  // Sync active input location with current active subtab
+  // PERSISTENCE ON MOUNT
   useEffect(() => {
-    if (activeSubTab === 'competitors') setLocationInput(cityCompetitors);
-    if (activeSubTab === 'web_leads') setLocationInput(cityWeb);
-    if (activeSubTab === 'aradhya_leads') setLocationInput(cityAradhya);
-  }, [activeSubTab]);
+    const savedLoc = localStorage.getItem('converge_selected_location');
+    if (savedLoc) {
+      setLocationInput(savedLoc);
+      setCityCompetitors(savedLoc);
+      setCityWeb(savedLoc);
+      setCityAradhya(savedLoc);
+    }
+  }, []);
+
+  // Sync active input location with current active subtab & restore niche
+  useEffect(() => {
+    const savedLoc = localStorage.getItem('converge_selected_location');
+    if (savedLoc) {
+      setLocationInput(savedLoc);
+    } else {
+      if (activeSubTab === 'competitors') setLocationInput(cityCompetitors);
+      if (activeSubTab === 'web_leads') setLocationInput(cityWeb);
+      if (activeSubTab === 'aradhya_leads') setLocationInput(cityAradhya);
+    }
+
+    const scope = activeSubTab === 'competitors' ? 'competitor_research' : activeSubTab === 'web_leads' ? 'web_dev' : 'aradhya';
+    const savedNiche = localStorage.getItem(`converge_selected_niche_${scope}`);
+    if (savedNiche) {
+      setActiveNiche(savedNiche);
+    } else {
+      const list = activeSubTab === 'competitors' ? catCompetitors : activeSubTab === 'web_leads' ? catWeb : catAradhya;
+      const active = list.find(c => c.is_active);
+      if (active) setActiveNiche(active.category_name);
+    }
+  }, [activeSubTab, catCompetitors, catWeb, catAradhya]);
 
   // Handle Outside Click for Autocomplete Dropdown
   useEffect(() => {
@@ -107,34 +137,34 @@ export default function CompetitorResearch({ setActiveTab }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-const STARTER_CATEGORIES = {
-  competitor_research: [
-    { id: 'c1', category_name: 'Digital Marketing Agencies', is_active: true },
-    { id: 'c2', category_name: 'Web Development Agencies', is_active: true },
-    { id: 'c3', category_name: 'Branding & Design Studios', is_active: true },
-    { id: 'c4', category_name: 'AI/Automation Agencies', is_active: true },
-    { id: 'c5', category_name: 'Social Media Management Agencies', is_active: false },
-    { id: 'c6', category_name: 'SEO Agencies', is_active: false },
-    { id: 'c7', category_name: 'Video Production Studios', is_active: false }
-  ],
-  web_dev: [
-    { id: 'w1', category_name: 'Dental Clinics', is_active: true },
-    { id: 'w2', category_name: 'Law Firms', is_active: true },
-    { id: 'w3', category_name: 'Real Estate Agencies', is_active: true },
-    { id: 'w4', category_name: 'Restaurants & Hospitality', is_active: true },
-    { id: 'w5', category_name: 'Medical & Aesthetic Practices', is_active: true },
-    { id: 'w6', category_name: 'Fitness Studios & Gyms', is_active: false },
-    { id: 'w7', category_name: 'Accounting & Tax Firms', is_active: false }
-  ],
-  aradhya: [
-    { id: 'a1', category_name: 'D2C Skincare & Beauty', is_active: true },
-    { id: 'a2', category_name: 'Luxury Real Estate', is_active: true },
-    { id: 'a3', category_name: 'MedSpas & Aesthetics', is_active: true },
-    { id: 'a4', category_name: 'Fitness & Wellness Studios', is_active: true },
-    { id: 'a5', category_name: 'Fashion & Apparel D2C', is_active: false },
-    { id: 'a6', category_name: 'Jewelry Brands', is_active: false }
-  ]
-};
+  const STARTER_CATEGORIES = {
+    competitor_research: [
+      { id: 'c1', category_name: 'Digital Marketing Agencies', is_active: true },
+      { id: 'c2', category_name: 'Web Development Agencies', is_active: false },
+      { id: 'c3', category_name: 'Branding & Design Studios', is_active: false },
+      { id: 'c4', category_name: 'AI/Automation Agencies', is_active: false },
+      { id: 'c5', category_name: 'Social Media Management Agencies', is_active: false },
+      { id: 'c6', category_name: 'SEO Agencies', is_active: false },
+      { id: 'c7', category_name: 'Video Production Studios', is_active: false }
+    ],
+    web_dev: [
+      { id: 'w1', category_name: 'Dental Clinics', is_active: true },
+      { id: 'w2', category_name: 'Law Firms', is_active: false },
+      { id: 'w3', category_name: 'Real Estate Agencies', is_active: false },
+      { id: 'w4', category_name: 'Restaurants & Hospitality', is_active: false },
+      { id: 'w5', category_name: 'Medical & Aesthetic Practices', is_active: false },
+      { id: 'w6', category_name: 'Fitness Studios & Gyms', is_active: false },
+      { id: 'w7', category_name: 'Accounting & Tax Firms', is_active: false }
+    ],
+    aradhya: [
+      { id: 'a1', category_name: 'D2C Skincare & Beauty', is_active: true },
+      { id: 'a2', category_name: 'Luxury Real Estate', is_active: false },
+      { id: 'a3', category_name: 'MedSpas & Aesthetics', is_active: false },
+      { id: 'a4', category_name: 'Fitness & Wellness Studios', is_active: false },
+      { id: 'a5', category_name: 'Fashion & Apparel D2C', is_active: false },
+      { id: 'a6', category_name: 'Jewelry Brands', is_active: false }
+    ]
+  };
 
   // Fetch Categories for dedicated scopes
   const fetchScopeCategories = async (scope) => {
@@ -143,18 +173,29 @@ const STARTER_CATEGORIES = {
       const data = await res.json();
       let list = (data.success && data.categories && data.categories.length > 0) ? data.categories : STARTER_CATEGORIES[scope];
       
+      const savedNiche = localStorage.getItem(`converge_selected_niche_${scope}`);
+
       if (scope === 'competitor_research') {
         setCatCompetitors(list);
-        const active = list.find(c => c.is_active);
-        if (active && !activeNiche) setActiveNiche(active.category_name);
+        if (savedNiche) setActiveNiche(savedNiche);
+        else {
+          const active = list.find(c => c.is_active);
+          if (active && !activeNiche) setActiveNiche(active.category_name);
+        }
       } else if (scope === 'web_dev') {
         setCatWeb(list);
-        const active = list.find(c => c.is_active);
-        if (active && !activeNiche) setActiveNiche(active.category_name);
+        if (savedNiche) setActiveNiche(savedNiche);
+        else {
+          const active = list.find(c => c.is_active);
+          if (active && !activeNiche) setActiveNiche(active.category_name);
+        }
       } else if (scope === 'aradhya') {
         setCatAradhya(list);
-        const active = list.find(c => c.is_active);
-        if (active && !activeNiche) setActiveNiche(active.category_name);
+        if (savedNiche) setActiveNiche(savedNiche);
+        else {
+          const active = list.find(c => c.is_active);
+          if (active && !activeNiche) setActiveNiche(active.category_name);
+        }
       }
     } catch (err) {
       console.warn(`Failed to load ${scope} categories:`, err);
@@ -177,21 +218,48 @@ const STARTER_CATEGORIES = {
     if (activeSubTab === 'aradhya_leads') fetchLeads('aradhya_video');
   }, [activeSubTab]);
 
-  // Update Location for active subtab and save to DB
-  const handleSelectLocation = async (locName) => {
-    setLocationInput(locName);
+  // SEGMENTED AUTOCOMPLETE: Extract current segment after last comma
+  const getActiveSegment = (inputStr) => {
+    if (!inputStr) return '';
+    const parts = inputStr.split(',');
+    return parts[parts.length - 1].trim();
+  };
+
+  const activeSegment = getActiveSegment(locationInput);
+
+  // Filter recommendations matching the current segment
+  const filteredSuggestions = activeSegment
+    ? VERIFIED_LOCATIONS.filter(loc => loc.toLowerCase().includes(activeSegment.toLowerCase()))
+    : VERIFIED_LOCATIONS;
+
+  // Handle Location Selection or Typing (with Multi-City Comma Append)
+  const handleSelectLocation = async (chosenLoc) => {
+    let finalLocationStr = chosenLoc;
+
+    if (locationInput.includes(',')) {
+      const parts = locationInput.split(',').map(s => s.trim()).filter(Boolean);
+      if (parts.length > 1) {
+        parts.pop(); // remove incomplete active segment
+        finalLocationStr = [...parts, chosenLoc].join(', ');
+      }
+    }
+
+    setLocationInput(finalLocationStr);
     setShowSuggestions(false);
 
-    if (activeSubTab === 'competitors') setCityCompetitors(locName);
-    if (activeSubTab === 'web_leads') setCityWeb(locName);
-    if (activeSubTab === 'aradhya_leads') setCityAradhya(locName);
+    if (activeSubTab === 'competitors') setCityCompetitors(finalLocationStr);
+    if (activeSubTab === 'web_leads') setCityWeb(finalLocationStr);
+    if (activeSubTab === 'aradhya_leads') setCityAradhya(finalLocationStr);
 
-    // Save location to Supabase discovery_locations table for background cron job
+    // PERSIST TO LOCALSTORAGE
+    localStorage.setItem('converge_selected_location', finalLocationStr);
+
+    // PERSIST TO SUPABASE DATABASE (discovery_locations table for background cron job)
     try {
       await fetch(`${API_BASE}/api/settings/locations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ location_name: locName, scope: 'global' })
+        body: JSON.stringify({ location_name: finalLocationStr, scope: 'global' })
       });
     } catch (e) {
       console.warn('Could not save location setting:', e.message);
@@ -201,6 +269,9 @@ const STARTER_CATEGORIES = {
   // Single Category Selector (Radio behavior: ONLY 1 category active at a time)
   const handleSelectSingleCategory = async (catItem, scope) => {
     setActiveNiche(catItem.category_name);
+
+    // PERSIST SELECTED NICHE TO LOCALSTORAGE
+    localStorage.setItem(`converge_selected_niche_${scope}`, catItem.category_name);
 
     // Update local state list so ONLY catItem.category_name is active
     const updateList = (list) => list.map(c => ({
@@ -247,6 +318,7 @@ const STARTER_CATEGORIES = {
         setNewCatName('');
         setShowAddCatInput(false);
         setActiveNiche(data.category.category_name);
+        localStorage.setItem(`converge_selected_niche_${scope}`, data.category.category_name);
         fetchScopeCategories(scope);
       }
     } catch (e) {
@@ -434,11 +506,6 @@ const STARTER_CATEGORIES = {
     }
   };
 
-  // Helper: Filter locations suggestion dropdown
-  const filteredSuggestions = VERIFIED_LOCATIONS.filter(loc => 
-    loc.toLowerCase().includes(locationInput.toLowerCase())
-  );
-
   // Helper: Active scope categories based on current active subtab
   const currentScope = activeSubTab === 'competitors' ? 'competitor_research' : activeSubTab === 'web_leads' ? 'web_dev' : 'aradhya';
   const currentCategoryList = activeSubTab === 'competitors' ? catCompetitors : activeSubTab === 'web_leads' ? catWeb : catAradhya;
@@ -534,9 +601,17 @@ const STARTER_CATEGORIES = {
             </span>
           </div>
 
-          {/* SMART LOCATION AUTOCOMPLETE INPUT */}
+          {/* SMART SEGMENTED LOCATION AUTOCOMPLETE INPUT */}
           <div className="relative" ref={dropdownRef}>
-            <div className="flex items-center gap-2 bg-[#0A0A0C] border border-[#2B2B3A] rounded-xl px-3 py-1.5 focus-within:border-indigo-500 transition">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (locationInput.trim()) {
+                  handleSelectLocation(activeSegment || locationInput.trim());
+                }
+              }}
+              className="flex items-center gap-2 bg-[#0A0A0C] border border-[#2B2B3A] rounded-xl px-3 py-1.5 focus-within:border-indigo-500 transition"
+            >
               <MapPin className="w-4 h-4 text-indigo-400 shrink-0" />
               <span className="text-xs font-mono text-gray-400">Target Location:</span>
               <input
@@ -547,16 +622,27 @@ const STARTER_CATEGORIES = {
                   setShowSuggestions(true);
                 }}
                 onFocus={() => setShowSuggestions(true)}
-                placeholder="Search city/country (e.g. Dubai, Miami)..."
-                className="bg-transparent text-xs font-medium text-white outline-none w-44"
+                placeholder="Type city/country (e.g. Dubai, Delhi, Miami)..."
+                className="bg-transparent text-xs font-medium text-white outline-none w-56 sm:w-64"
               />
-            </div>
+            </form>
 
             {/* AUTOCOMPLETE SUGGESTIONS DROPDOWN */}
-            {showSuggestions && filteredSuggestions.length > 0 && (
-              <div className="absolute right-0 top-full mt-1.5 w-64 bg-[#1A1A22] border border-[#2B2B3A] rounded-xl shadow-2xl z-50 overflow-hidden max-h-56 overflow-y-auto">
+            {showSuggestions && (
+              <div className="absolute right-0 top-full mt-1.5 w-72 bg-[#1A1A22] border border-[#2B2B3A] rounded-xl shadow-2xl z-50 overflow-hidden max-h-64 overflow-y-auto">
+                {/* Dynamic Free-Form Option: Allows picking ANY typed location */}
+                {activeSegment.length > 0 && (
+                  <button
+                    onClick={() => handleSelectLocation(activeSegment)}
+                    className="w-full text-left px-3 py-2 text-xs font-medium text-indigo-300 hover:bg-indigo-500/20 flex items-center justify-between border-b border-[#2B2B3A] bg-indigo-500/10"
+                  >
+                    <span className="truncate">➕ Use typed: "{activeSegment}"</span>
+                    <Plus className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  </button>
+                )}
+
                 <div className="p-2 text-[10px] font-mono text-gray-400 border-b border-[#2B2B3A]">
-                  Verified Locations (Auto-saved to DB):
+                  World Location Suggestions:
                 </div>
                 {filteredSuggestions.map((loc) => (
                   <button
@@ -565,7 +651,7 @@ const STARTER_CATEGORIES = {
                     className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:text-white hover:bg-indigo-500/20 flex items-center justify-between border-b border-[#2B2B3A]/30 transition"
                   >
                     <span>{loc}</span>
-                    {locationInput === loc && <Check className="w-3.5 h-3.5 text-indigo-400" />}
+                    {locationInput.toLowerCase().includes(loc.toLowerCase()) && <Check className="w-3.5 h-3.5 text-indigo-400" />}
                   </button>
                 ))}
               </div>
