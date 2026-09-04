@@ -355,11 +355,12 @@ STRICT REALITY & ANTI-HALLUCINATION CONSTRAINTS:
    - DO NOT guess synthetic emails like "info@domain.com". If an official email is published on Google Maps or contact page, return it. Otherwise return null.
 
 LEAD QUALIFICATION CRITERIA:
+- HIGHEST PRIORITY: FIRST SURFACE & RANK BUSINESSES THAT HAVE NO WEBSITE LISTED ON THEIR GOOGLE MAPS CARD!
 ${isVideo 
   ? `TARGET: Independent D2C/Visual brands in "${niche}" running static image Meta ads or lacking 4K video ads.
      Qualification Reason MUST specify: "Running static image ads on Meta; missing 4K AI Video Spokesperson for 2.8x higher CTR."`
   : `QUALIFY ONLY UNDER ONE OF THESE 2 EXACT SCENARIOS:
-     - SCENARIO 1 (No Website Target): Business is actively operating with Google rating/reviews BUT HAS NO WEBSITE.
+     - SCENARIO 1 (No Website Target - HIGHEST PRIORITY): Business is actively operating with Google rating/reviews BUT HAS NO WEBSITE.
        Qualification Reason: "Active open business profile (Rating: X.X) with NO website listed. Losing 80%+ of online booking traffic."
      - SCENARIO 2 (Flawed Website Target): Business HAS a verified website, BUT it has concrete pitchable flaws (slow mobile load speed >3.5s, non-responsive desktop-first 2010s UI, messy user flow, missing direct WhatsApp CTA or booking widget above fold).
        Qualification Reason MUST list 2-3 specific technical flaws (e.g. "Slow 4.2s mobile load, non-responsive mobile layout, no direct WhatsApp CTA above fold").`

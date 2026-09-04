@@ -112,6 +112,26 @@ router.post('/locations', async (req, res) => {
   if (!location_name) return res.status(400).json({ success: false, message: 'location_name is required' });
 
   try {
+    // Set all previous locations to inactive so selected location is active
+    await supabase.from('discovery_locations').update({ is_active: false }).neq('id', '00000000-0000-0000-0000-000000000000');
+
+    // Check if location already exists
+    const { data: existing } = await supabase
+      .from('discovery_locations')
+      .select('*')
+      .eq('location_name', location_name)
+      .maybeSingle();
+
+    if (existing) {
+      const { data: updated } = await supabase
+        .from('discovery_locations')
+        .update({ is_active: true })
+        .eq('id', existing.id)
+        .select()
+        .single();
+      return res.json({ success: true, location: updated });
+    }
+
     const { data, error } = await supabase
       .from('discovery_locations')
       .insert([{ location_name, scope, is_active: true }])
@@ -165,18 +185,20 @@ router.delete('/locations/:id', async (req, res) => {
 router.get('/categories', async (req, res) => {
   const { scope = 'web_dev' } = req.query;
   try {
-    const { data: categories, error } = await supabase
+    let { data: categories, error } = await supabase
       .from('discovery_categories')
       .select('*')
       .eq('scope', scope)
       .order('created_at', { ascending: true });
 
-    if (error) {
-      if (error.message.includes('relation')) {
-        await seedDefaultDiscoverySettings();
-        return res.json({ success: true, categories: [] });
-      }
-      throw error;
+    if (error || !categories || categories.length === 0) {
+      await seedDefaultDiscoverySettings();
+      const { data: reFetched } = await supabase
+        .from('discovery_categories')
+        .select('*')
+        .eq('scope', scope)
+        .order('created_at', { ascending: true });
+      categories = reFetched || [];
     }
 
     return res.json({ success: true, categories: categories || [] });

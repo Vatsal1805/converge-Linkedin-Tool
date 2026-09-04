@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Eye, 
   Sparkles, 
@@ -18,15 +18,35 @@ import {
   Send,
   UserCheck,
   Phone,
-  Mail
+  Mail,
+  X,
+  FileSpreadsheet
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : '';
 
+// Verified Global Cities Preset for Autocomplete
+const VERIFIED_LOCATIONS = [
+  'Dubai, UAE',
+  'Miami, FL, USA',
+  'London, UK',
+  'Los Angeles, CA, USA',
+  'Austin, TX, USA',
+  'New York, NY, USA',
+  'Chicago, IL, USA',
+  'San Francisco, CA, USA',
+  'Toronto, Canada',
+  'Sydney, Australia',
+  'Mumbai, India',
+  'Singapore',
+  'Paris, France',
+  'Berlin, Germany'
+];
+
 export default function CompetitorResearch({ setActiveTab }) {
   const [activeSubTab, setActiveSubTab] = useState('competitors'); // 'competitors', 'web_leads', 'aradhya_leads'
   
-  // Competitors State
+  // Competitors State (Tab 1)
   const [competitors, setCompetitors] = useState([]);
   const [loadingCompetitors, setLoadingCompetitors] = useState(true);
   const [showManualForm, setShowManualForm] = useState(false);
@@ -37,26 +57,227 @@ export default function CompetitorResearch({ setActiveTab }) {
   // Web Dev Leads State (Tab 2)
   const [webLeads, setWebLeads] = useState([]);
   const [loadingWebLeads, setLoadingWebLeads] = useState(false);
-  const [activeNicheWeb, setActiveNicheWeb] = useState('Dental Clinics');
-  const [activeCityWeb, setActiveCityWeb] = useState('Dubai, UAE');
 
   // Aradhya Video Leads State (Tab 3)
   const [aradhyaLeads, setAradhyaLeads] = useState([]);
   const [loadingAradhyaLeads, setLoadingAradhyaLeads] = useState(false);
-  const [activeNicheAradhya, setActiveNicheAradhya] = useState('D2C Skincare & Beauty');
 
   const [generatingPitchId, setGeneratingPitchId] = useState(null);
   const [pitchSuccessId, setPitchSuccessId] = useState(null);
 
-  // Live Gemini Grounding Search State (Prompt 8)
+  // Live Discovery State
   const [discoveringLive, setDiscoveringLive] = useState(false);
   const [discoverMessage, setDiscoverMessage] = useState(null);
 
+  // DYNAMIC LOCATION STATE PER SUB-TAB
+  const [cityCompetitors, setCityCompetitors] = useState('Dubai, UAE');
+  const [cityWeb, setCityWeb] = useState('Dubai, UAE');
+  const [cityAradhya, setCityAradhya] = useState('Dubai, UAE');
+
+  // Autocomplete UI State
+  const [locationInput, setLocationInput] = useState('Dubai, UAE');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // DYNAMIC DEDICATED CATEGORIES STATE PER SUB-TAB
+  const [catCompetitors, setCatCompetitors] = useState([]);
+  const [catWeb, setCatWeb] = useState([]);
+  const [catAradhya, setCatAradhya] = useState([]);
+  const [activeNiche, setActiveNiche] = useState('');
+
+  // Add Category inline input state
+  const [showAddCatInput, setShowAddCatInput] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+
+  // Sync active input location with current active subtab
+  useEffect(() => {
+    if (activeSubTab === 'competitors') setLocationInput(cityCompetitors);
+    if (activeSubTab === 'web_leads') setLocationInput(cityWeb);
+    if (activeSubTab === 'aradhya_leads') setLocationInput(cityAradhya);
+  }, [activeSubTab]);
+
+  // Handle Outside Click for Autocomplete Dropdown
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+const STARTER_CATEGORIES = {
+  competitor_research: [
+    { id: 'c1', category_name: 'Digital Marketing Agencies', is_active: true },
+    { id: 'c2', category_name: 'Web Development Agencies', is_active: true },
+    { id: 'c3', category_name: 'Branding & Design Studios', is_active: true },
+    { id: 'c4', category_name: 'AI/Automation Agencies', is_active: true },
+    { id: 'c5', category_name: 'Social Media Management Agencies', is_active: false },
+    { id: 'c6', category_name: 'SEO Agencies', is_active: false },
+    { id: 'c7', category_name: 'Video Production Studios', is_active: false }
+  ],
+  web_dev: [
+    { id: 'w1', category_name: 'Dental Clinics', is_active: true },
+    { id: 'w2', category_name: 'Law Firms', is_active: true },
+    { id: 'w3', category_name: 'Real Estate Agencies', is_active: true },
+    { id: 'w4', category_name: 'Restaurants & Hospitality', is_active: true },
+    { id: 'w5', category_name: 'Medical & Aesthetic Practices', is_active: true },
+    { id: 'w6', category_name: 'Fitness Studios & Gyms', is_active: false },
+    { id: 'w7', category_name: 'Accounting & Tax Firms', is_active: false }
+  ],
+  aradhya: [
+    { id: 'a1', category_name: 'D2C Skincare & Beauty', is_active: true },
+    { id: 'a2', category_name: 'Luxury Real Estate', is_active: true },
+    { id: 'a3', category_name: 'MedSpas & Aesthetics', is_active: true },
+    { id: 'a4', category_name: 'Fitness & Wellness Studios', is_active: true },
+    { id: 'a5', category_name: 'Fashion & Apparel D2C', is_active: false },
+    { id: 'a6', category_name: 'Jewelry Brands', is_active: false }
+  ]
+};
+
+  // Fetch Categories for dedicated scopes
+  const fetchScopeCategories = async (scope) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/settings/categories?scope=${scope}`);
+      const data = await res.json();
+      let list = (data.success && data.categories && data.categories.length > 0) ? data.categories : STARTER_CATEGORIES[scope];
+      
+      if (scope === 'competitor_research') {
+        setCatCompetitors(list);
+        const active = list.find(c => c.is_active);
+        if (active && !activeNiche) setActiveNiche(active.category_name);
+      } else if (scope === 'web_dev') {
+        setCatWeb(list);
+        const active = list.find(c => c.is_active);
+        if (active && !activeNiche) setActiveNiche(active.category_name);
+      } else if (scope === 'aradhya') {
+        setCatAradhya(list);
+        const active = list.find(c => c.is_active);
+        if (active && !activeNiche) setActiveNiche(active.category_name);
+      }
+    } catch (err) {
+      console.warn(`Failed to load ${scope} categories:`, err);
+      const fallbackList = STARTER_CATEGORIES[scope] || [];
+      if (scope === 'competitor_research') setCatCompetitors(fallbackList);
+      if (scope === 'web_dev') setCatWeb(fallbackList);
+      if (scope === 'aradhya') setCatAradhya(fallbackList);
+    }
+  };
+
+  useEffect(() => {
+    fetchScopeCategories('competitor_research');
+    fetchScopeCategories('web_dev');
+    fetchScopeCategories('aradhya');
+    fetchCompetitors();
+  }, []);
+
+  useEffect(() => {
+    if (activeSubTab === 'web_leads') fetchLeads('web_dev');
+    if (activeSubTab === 'aradhya_leads') fetchLeads('aradhya_video');
+  }, [activeSubTab]);
+
+  // Update Location for active subtab and save to DB
+  const handleSelectLocation = async (locName) => {
+    setLocationInput(locName);
+    setShowSuggestions(false);
+
+    if (activeSubTab === 'competitors') setCityCompetitors(locName);
+    if (activeSubTab === 'web_leads') setCityWeb(locName);
+    if (activeSubTab === 'aradhya_leads') setCityAradhya(locName);
+
+    // Save location to Supabase discovery_locations table for background cron job
+    try {
+      await fetch(`${API_BASE}/api/settings/locations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location_name: locName, scope: 'global' })
+      });
+    } catch (e) {
+      console.warn('Could not save location setting:', e.message);
+    }
+  };
+
+  // Single Category Selector (Radio behavior: ONLY 1 category active at a time)
+  const handleSelectSingleCategory = async (catItem, scope) => {
+    setActiveNiche(catItem.category_name);
+
+    // Update local state list so ONLY catItem.category_name is active
+    const updateList = (list) => list.map(c => ({
+      ...c,
+      is_active: c.category_name === catItem.category_name
+    }));
+
+    if (scope === 'competitor_research') setCatCompetitors(updateList);
+    if (scope === 'web_dev') setCatWeb(updateList);
+    if (scope === 'aradhya') setCatAradhya(updateList);
+
+    // Sync to DB: set selected catItem to is_active=true, all others to false
+    try {
+      const list = scope === 'competitor_research' ? catCompetitors : scope === 'web_dev' ? catWeb : catAradhya;
+      for (const c of list) {
+        if (c.id && typeof c.id === 'string' && c.id.length > 5) {
+          const shouldBeActive = c.category_name === catItem.category_name;
+          if (c.is_active !== shouldBeActive) {
+            fetch(`${API_BASE}/api/settings/categories/${c.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ is_active: shouldBeActive })
+            }).catch(e => console.warn('Category update warning:', e.message));
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to update category DB status:', e.message);
+    }
+  };
+
+  // Add New Category to active scope
+  const handleAddCategory = async (e, scope) => {
+    e.preventDefault();
+    if (!newCatName.trim()) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/settings/categories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category_name: newCatName.trim(), scope })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNewCatName('');
+        setShowAddCatInput(false);
+        setActiveNiche(data.category.category_name);
+        fetchScopeCategories(scope);
+      }
+    } catch (e) {
+      console.warn('Failed to add category:', e.message);
+    }
+  };
+
+  // Delete Category
+  const handleDeleteCategory = async (id, scope) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/settings/categories/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        fetchScopeCategories(scope);
+      }
+    } catch (e) {
+      console.warn('Failed to delete category:', e.message);
+    }
+  };
+
+  // Live Discovery Execution Trigger
   const handleDiscoverLiveCompetitors = async () => {
     setDiscoveringLive(true);
     setDiscoverMessage(null);
     try {
-      const res = await fetch(`${API_BASE}/api/competitors/discover-live`, { method: 'POST' });
+      const currentCat = activeNiche || 'Digital Marketing Agencies';
+      const res = await fetch(`${API_BASE}/api/competitors/discover-live`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category: currentCat, location: locationInput })
+      });
       const data = await res.json();
       if (data.success) {
         setDiscoverMessage(data.message);
@@ -74,14 +295,15 @@ export default function CompetitorResearch({ setActiveTab }) {
     }
   };
 
-  const handleDiscoverLiveLeads = async (leadType, niche, location) => {
+  const handleDiscoverLiveLeads = async (leadType) => {
     setDiscoveringLive(true);
     setDiscoverMessage(null);
+    const currentNiche = activeNiche || (leadType === 'web_dev' ? 'Dental Clinics' : 'D2C Skincare & Beauty');
     try {
       const res = await fetch(`${API_BASE}/api/leads/discover-live`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leadType, niche, location })
+        body: JSON.stringify({ leadType, niche: currentNiche, location: locationInput })
       });
       const data = await res.json();
       if (data.success) {
@@ -100,15 +322,6 @@ export default function CompetitorResearch({ setActiveTab }) {
       setDiscoveringLive(false);
     }
   };
-
-  useEffect(() => {
-    fetchCompetitors();
-  }, []);
-
-  useEffect(() => {
-    if (activeSubTab === 'web_leads') fetchLeads('web_dev');
-    if (activeSubTab === 'aradhya_leads') fetchLeads('aradhya_video');
-  }, [activeSubTab]);
 
   const fetchCompetitors = async () => {
     setLoadingCompetitors(true);
@@ -221,6 +434,15 @@ export default function CompetitorResearch({ setActiveTab }) {
     }
   };
 
+  // Helper: Filter locations suggestion dropdown
+  const filteredSuggestions = VERIFIED_LOCATIONS.filter(loc => 
+    loc.toLowerCase().includes(locationInput.toLowerCase())
+  );
+
+  // Helper: Active scope categories based on current active subtab
+  const currentScope = activeSubTab === 'competitors' ? 'competitor_research' : activeSubTab === 'web_leads' ? 'web_dev' : 'aradhya';
+  const currentCategoryList = activeSubTab === 'competitors' ? catCompetitors : activeSubTab === 'web_leads' ? catWeb : catAradhya;
+
   return (
     <div className="space-y-6">
       {/* Top Banner & Sub-tab Navigation */}
@@ -230,7 +452,7 @@ export default function CompetitorResearch({ setActiveTab }) {
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xs font-mono text-rose-400">AUTONOMOUS INTELLIGENCE ENGINE</span>
               <span className="text-xs text-gray-600">•</span>
-              <span className="text-xs font-mono text-gray-400">Gemini 3.5 Flash Grounding & Public Ad Libraries</span>
+              <span className="text-xs font-mono text-gray-400">Gemini 2.5 Flash Grounding & Google Places API</span>
             </div>
             <h1 className="text-xl font-bold font-heading text-white">Competitor & Lead Intelligence</h1>
           </div>
@@ -239,19 +461,19 @@ export default function CompetitorResearch({ setActiveTab }) {
             <button
               onClick={() => {
                 if (activeSubTab === 'competitors') handleDiscoverLiveCompetitors();
-                if (activeSubTab === 'web_leads') handleDiscoverLiveLeads('web_dev', activeNicheWeb, activeCityWeb);
-                if (activeSubTab === 'aradhya_leads') handleDiscoverLiveLeads('aradhya_video', activeNicheAradhya, 'USA');
+                if (activeSubTab === 'web_leads') handleDiscoverLiveLeads('web_dev');
+                if (activeSubTab === 'aradhya_leads') handleDiscoverLiveLeads('aradhya_video');
               }}
               disabled={discoveringLive}
-              className="text-xs font-medium px-4 py-2 rounded-xl transition-all flex items-center gap-2 bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/20"
+              className="text-xs font-medium px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/20"
             >
-              <Sparkles className={`w-3.5 h-3.5 ${discoveringLive ? 'animate-spin' : ''}`} />
-              <span>{discoveringLive ? 'Gemini 3.5 Searching Live Web...' : '⚡ Discover Real Competitors & Leads Now'}</span>
+              <Sparkles className={`w-4 h-4 ${discoveringLive ? 'animate-spin' : ''}`} />
+              <span>{discoveringLive ? 'Searching Verified Web...' : '⚡ Discover Real Competitors & Leads Now'}</span>
             </button>
 
-            <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-gray-400 bg-[#0A0A0C] border border-[#23232F] px-3.5 py-2 rounded-xl">
-              <Search className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Limit: 5 Competitors / 10 Leads</span>
+            <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-2 rounded-xl">
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Google Sheets Auto-Sync Active</span>
             </div>
           </div>
         </div>
@@ -300,6 +522,123 @@ export default function CompetitorResearch({ setActiveTab }) {
             <Video className="w-3.5 h-3.5 text-purple-400" />
             <span>3. Aradhya AI Video Leads (Visual/D2C Only)</span>
           </button>
+        </div>
+      </div>
+
+      {/* DYNAMIC LOCATION & CATEGORY CONTROL TOOLBAR (FOR ACTIVE TAB) */}
+      <div className="bg-[#121216] border border-[#23232F] rounded-2xl p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#23232F] pb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono uppercase text-indigo-400 tracking-wider">
+              {activeSubTab === 'competitors' ? 'COMPETITOR DISCOVERY SETTINGS' : activeSubTab === 'web_leads' ? 'WEB DEV LEADS SETTINGS' : 'ARADHYA AI VIDEO SETTINGS'}
+            </span>
+          </div>
+
+          {/* SMART LOCATION AUTOCOMPLETE INPUT */}
+          <div className="relative" ref={dropdownRef}>
+            <div className="flex items-center gap-2 bg-[#0A0A0C] border border-[#2B2B3A] rounded-xl px-3 py-1.5 focus-within:border-indigo-500 transition">
+              <MapPin className="w-4 h-4 text-indigo-400 shrink-0" />
+              <span className="text-xs font-mono text-gray-400">Target Location:</span>
+              <input
+                type="text"
+                value={locationInput}
+                onChange={(e) => {
+                  setLocationInput(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                placeholder="Search city/country (e.g. Dubai, Miami)..."
+                className="bg-transparent text-xs font-medium text-white outline-none w-44"
+              />
+            </div>
+
+            {/* AUTOCOMPLETE SUGGESTIONS DROPDOWN */}
+            {showSuggestions && filteredSuggestions.length > 0 && (
+              <div className="absolute right-0 top-full mt-1.5 w-64 bg-[#1A1A22] border border-[#2B2B3A] rounded-xl shadow-2xl z-50 overflow-hidden max-h-56 overflow-y-auto">
+                <div className="p-2 text-[10px] font-mono text-gray-400 border-b border-[#2B2B3A]">
+                  Verified Locations (Auto-saved to DB):
+                </div>
+                {filteredSuggestions.map((loc) => (
+                  <button
+                    key={loc}
+                    onClick={() => handleSelectLocation(loc)}
+                    className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:text-white hover:bg-indigo-500/20 flex items-center justify-between border-b border-[#2B2B3A]/30 transition"
+                  >
+                    <span>{loc}</span>
+                    {locationInput === loc && <Check className="w-3.5 h-3.5 text-indigo-400" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* DEDICATED 7-DAY ROTATION CATEGORY PILLS FOR ACTIVE TAB */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono uppercase text-gray-400 tracking-wider">
+              ACTIVE 7-DAY NICHE FOCUS ({currentCategoryList.length} Categories):
+            </span>
+
+            {/* Add inline category button */}
+            {!showAddCatInput ? (
+              <button
+                onClick={() => setShowAddCatInput(true)}
+                className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-mono"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Niche
+              </button>
+            ) : (
+              <form onSubmit={(e) => handleAddCategory(e, currentScope)} className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="New niche name..."
+                  value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  className="bg-[#0A0A0C] border border-[#2B2B3A] rounded-lg px-2.5 py-1 text-xs text-white outline-none w-40"
+                  autoFocus
+                />
+                <button type="submit" className="text-xs bg-indigo-600 px-2.5 py-1 rounded-lg text-white font-medium">
+                  Save
+                </button>
+                <button type="button" onClick={() => setShowAddCatInput(false)} className="text-gray-400 hover:text-white">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </form>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-2 pt-1">
+            {currentCategoryList.map((cat) => {
+              const isSelected = activeNiche === cat.category_name;
+
+              return (
+                <div
+                  key={cat.id || cat.category_name}
+                  className={`group relative inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/50 shadow-md shadow-indigo-500/10 font-bold'
+                      : 'bg-[#0A0A0C] text-gray-400 border-[#23232F] hover:border-gray-600 hover:text-white'
+                  }`}
+                  onClick={() => handleSelectSingleCategory(cat, currentScope)}
+                >
+                  <span>{cat.category_name}</span>
+                  {cat.id && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteCategory(cat.id, currentScope);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 hover:text-rose-400 transition"
+                      title="Remove category"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -448,24 +787,22 @@ export default function CompetitorResearch({ setActiveTab }) {
                               key={res.id || res.content_notes}
                               className="bg-[#0A0A0C] border border-[#23232F] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                             >
-                              <div className="space-y-1 max-w-2xl">
+                              <div className="space-y-1">
                                 <div className="flex items-center gap-2">
-                                  <span className="px-2 py-0.5 text-[9px] font-mono font-bold uppercase rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                                    {(res.source || 'meta_ad_library').replace('_', ' ')}
+                                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                                    {res.source || 'meta_ad_library'}
                                   </span>
-                                  <span className="text-[10px] text-gray-500 font-mono">
-                                    Detected: {res.date_added ? new Date(res.date_added).toLocaleDateString() : 'Today'}
+                                  <span className="text-xs text-gray-400 font-mono">
+                                    {res.date_added ? new Date(res.date_added).toLocaleDateString() : 'Active Today'}
                                   </span>
                                 </div>
-                                <p className="text-xs text-gray-300 font-sans leading-relaxed">
-                                  "{res.content_notes}"
-                                </p>
+                                <p className="text-xs text-gray-300 font-mono">{res.content_notes}</p>
                               </div>
 
                               <button
                                 onClick={() => handleSuggestIdea(comp.name, res.content_notes, res.id)}
                                 disabled={isSuggesting}
-                                className={`shrink-0 text-xs font-medium px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+                                className={`text-xs font-medium px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${
                                   isSuggested
                                     ? 'bg-emerald-600 text-white'
                                     : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-md'
@@ -479,7 +816,7 @@ export default function CompetitorResearch({ setActiveTab }) {
                                 ) : (
                                   <>
                                     <Sparkles className="w-3.5 h-3.5" />
-                                    <span>{isSuggesting ? 'Analyzing...' : 'Suggest Converge Post Idea'}</span>
+                                    <span>{isSuggesting ? 'Adapting...' : 'Adapt Hook to Post'}</span>
                                   </>
                                 )}
                               </button>
@@ -499,49 +836,16 @@ export default function CompetitorResearch({ setActiveTab }) {
       {/* TAB 2: WEB DEV & BRANDING LEADS */}
       {activeSubTab === 'web_leads' && (
         <div className="space-y-6">
-          {/* Niche & Location Selector Bar */}
-          <div className="bg-[#121216] border border-[#23232F] rounded-2xl p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <span className="text-xs font-mono text-indigo-400 uppercase">WEEKLY NICHE CRAWLER ROTATOR</span>
-                <h3 className="text-base font-bold font-heading text-white">Active Niche Focus (7-Day Rotation)</h3>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1.5 bg-[#0A0A0C] border border-[#23232F] px-3 py-1.5 rounded-xl text-xs font-mono text-gray-300">
-                  <MapPin className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>Target: {activeCityWeb}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Niche Selector Pills */}
-            <div className="flex flex-wrap gap-2 pt-2 border-t border-[#23232F]">
-              {['Dental Clinics', 'Law Firms', 'Real Estate Agencies', 'Restaurants & Hospitality', 'Medical Practices'].map((niche) => (
-                <button
-                  key={niche}
-                  onClick={() => setActiveNicheWeb(niche)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-mono transition-all ${
-                    activeNicheWeb === niche
-                      ? 'bg-indigo-600 text-white font-bold shadow-md'
-                      : 'bg-[#0A0A0C] text-gray-400 hover:text-white border border-[#23232F]'
-                  }`}
-                >
-                  {niche}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Qualified Web Dev Lead Cards */}
           {loadingWebLeads ? (
-            <div className="p-8 text-center text-xs font-mono text-gray-500">Crawling Google listings & website speed metrics...</div>
+            <div className="p-8 text-center bg-[#121216] border border-[#23232F] rounded-2xl text-xs font-mono text-gray-500">
+              Loading qualified web development leads...
+            </div>
           ) : webLeads.length === 0 ? (
             <div className="p-8 text-center bg-[#121216] border border-[#23232F] rounded-2xl space-y-3">
               <Code className="w-8 h-8 text-indigo-400 mx-auto opacity-60" />
-              <p className="text-sm font-bold text-white">No Web Dev Leads Crawled Yet</p>
+              <p className="text-sm font-bold text-white">No Web Dev Leads Found Yet</p>
               <p className="text-xs text-gray-400 max-w-sm mx-auto font-mono">
-                Click "⚡ Discover Real Competitors & Leads Now" above to crawl Google listings for target business leads!
+                Click "⚡ Discover Real Competitors & Leads Now" to crawl local businesses in {locationInput}!
               </p>
             </div>
           ) : (
@@ -562,9 +866,14 @@ export default function CompetitorResearch({ setActiveTab }) {
                         <p className="text-xs text-gray-400 font-mono">{lead.niche} • {lead.city_state}</p>
                       </div>
 
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 font-mono text-xs font-bold">
-                        <Star className="w-3.5 h-3.5 fill-amber-400" />
-                        <span>{lead.rating} Stars</span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono flex items-center gap-1">
+                          <FileSpreadsheet className="w-3 h-3" /> Synced to Sheets
+                        </span>
+                        <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 font-mono text-xs font-bold">
+                          <Star className="w-3.5 h-3.5 fill-amber-400" />
+                          <span>{lead.rating} Stars</span>
+                        </div>
                       </div>
                     </div>
 
@@ -646,46 +955,16 @@ export default function CompetitorResearch({ setActiveTab }) {
       {/* TAB 3: ARADHYA AI VIDEO LEADS */}
       {activeSubTab === 'aradhya_leads' && (
         <div className="space-y-6">
-          {/* Niche Bar (Visual / D2C ONLY) */}
-          <div className="bg-[#121216] border border-[#23232F] rounded-2xl p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <span className="text-xs font-mono text-purple-400 uppercase">HIGH-VISUAL & D2C NICHES ONLY</span>
-                <h3 className="text-base font-bold font-heading text-white">Aradhya AI 4K Video Target Brands</h3>
-              </div>
-
-              <div className="px-3 py-1.5 bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-mono rounded-xl">
-                ✨ Static Ad ➔ Video Ad Conversion
-              </div>
-            </div>
-
-            {/* Visual Niches Selector */}
-            <div className="flex flex-wrap gap-2 pt-2 border-t border-[#23232F]">
-              {['D2C Skincare & Beauty', 'Luxury Real Estate', 'MedSpas & Aesthetics', 'High-Ticket SaaS', 'EdTech & Courses'].map((niche) => (
-                <button
-                  key={niche}
-                  onClick={() => setActiveNicheAradhya(niche)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-mono transition-all ${
-                    activeNicheAradhya === niche
-                      ? 'bg-purple-600 text-white font-bold shadow-md'
-                      : 'bg-[#0A0A0C] text-gray-400 hover:text-white border border-[#23232F]'
-                  }`}
-                >
-                  {niche}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Qualified Aradhya Leads */}
           {loadingAradhyaLeads ? (
-            <div className="p-8 text-center text-xs font-mono text-gray-500">Crawling Meta ad transparency for static-image ad brands...</div>
+            <div className="p-8 text-center bg-[#121216] border border-[#23232F] rounded-2xl text-xs font-mono text-gray-500">
+              Loading qualified AI Video leads...
+            </div>
           ) : aradhyaLeads.length === 0 ? (
             <div className="p-8 text-center bg-[#121216] border border-[#23232F] rounded-2xl space-y-3">
               <Video className="w-8 h-8 text-purple-400 mx-auto opacity-60" />
-              <p className="text-sm font-bold text-white">No Aradhya AI Video Leads Crawled Yet</p>
+              <p className="text-sm font-bold text-white">No Aradhya AI Video Leads Found Yet</p>
               <p className="text-xs text-gray-400 max-w-sm mx-auto font-mono">
-                Click "⚡ Discover Real Competitors & Leads Now" above to crawl Meta Ad Library for visual brands running static image ads!
+                Click "⚡ Discover Real Competitors & Leads Now" to crawl visual D2C brands in {locationInput}!
               </p>
             </div>
           ) : (
@@ -706,13 +985,19 @@ export default function CompetitorResearch({ setActiveTab }) {
                         <p className="text-xs text-purple-400 font-mono">{lead.niche} • {lead.city_state}</p>
                       </div>
 
-                      <span className="px-2.5 py-1 text-[10px] font-mono rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                        {lead.ad_status}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono flex items-center gap-1">
+                          <FileSpreadsheet className="w-3 h-3" /> Synced to Sheets
+                        </span>
+                        <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 font-mono text-xs font-bold">
+                          <Star className="w-3.5 h-3.5 fill-purple-400" />
+                          <span>{lead.rating} Stars</span>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="space-y-2">
-                      <span className="text-[10px] font-mono uppercase text-gray-500">Aradhya AI Video Opportunity:</span>
+                      <span className="text-[10px] font-mono uppercase text-gray-500">AI Video Qualification Angle:</span>
                       <p className="text-xs text-gray-300 font-sans leading-relaxed bg-[#0A0A0C] border border-[#23232F] rounded-xl p-3">
                         🎬 {lead.qualification_reason}
                       </p>
@@ -724,9 +1009,9 @@ export default function CompetitorResearch({ setActiveTab }) {
                         href={mapUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-rose-400 hover:underline flex items-center gap-1 bg-[#0A0A0C] border border-[#23232F] px-2.5 py-1 rounded-lg"
+                        className="text-purple-400 hover:underline flex items-center gap-1 bg-[#0A0A0C] border border-[#23232F] px-2.5 py-1 rounded-lg"
                       >
-                        <MapPin className="w-3.5 h-3.5 text-rose-400" /> View on Google Maps
+                        <MapPin className="w-3.5 h-3.5 text-purple-400" /> View Google Maps
                       </a>
 
                       {lead.phone_number && (
@@ -750,10 +1035,10 @@ export default function CompetitorResearch({ setActiveTab }) {
                           rel="noreferrer"
                           className="text-xs text-purple-400 hover:text-purple-300 font-mono flex items-center gap-1"
                         >
-                          <ExternalLink className="w-3.5 h-3.5" /> Visit Brand Site
+                          <ExternalLink className="w-3.5 h-3.5" /> View Brand Site
                         </a>
                       ) : (
-                        <span className="text-xs text-rose-400 font-mono">⚠️ No Website Found</span>
+                        <span className="text-xs text-gray-500 font-mono">No Website</span>
                       )}
 
                       <button
@@ -768,12 +1053,12 @@ export default function CompetitorResearch({ setActiveTab }) {
                         {isPitchSaved ? (
                           <>
                             <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Script Saved to Idea Bank!</span>
+                            <span>Angle Saved to Idea Bank!</span>
                           </>
                         ) : (
                           <>
-                            <Video className="w-3.5 h-3.5" />
-                            <span>{isGenerating ? 'Writing Script...' : 'Generate 4K Aradhya Video Script'}</span>
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>{isGenerating ? 'Generating...' : 'Generate AI Video Pitch'}</span>
                           </>
                         )}
                       </button>

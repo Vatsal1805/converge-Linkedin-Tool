@@ -152,154 +152,332 @@ Return PURE JSON ONLY: {"competitors": [{"name": "...", "website_url": "...", "i
 }
 
 // 2. Automated Lead Discovery Job (Google Places API + PageSpeed + Alternate Signals)
+// Helper: Parse comma-separated or semicolon-separated location strings safely
+function parseTargetCities(rawLocation) {
+  if (!rawLocation || typeof rawLocation !== 'string') return ['Dubai, UAE'];
+  const rawParts = rawLocation.split(/[;\n]/).map(s => s.trim()).filter(Boolean);
+  const cities = [];
+
+  for (const part of rawParts) {
+    if (part.includes(',')) {
+      const tokens = part.split(',').map(s => s.trim()).filter(Boolean);
+      for (let i = 0; i < tokens.length; i++) {
+        if (i < tokens.length - 1 && (tokens[i+1].length <= 3 || ['UAE', 'UK', 'USA', 'India', 'Canada', 'Australia'].includes(tokens[i+1]))) {
+          cities.push(`${tokens[i]}, ${tokens[i+1]}`);
+          i++;
+        } else {
+          cities.push(tokens[i]);
+        }
+      }
+    } else {
+      cities.push(part);
+    }
+  }
+
+  return cities.length > 0 ? cities : [rawLocation];
+}
+
+// 2. Automated Lead Discovery Job (Google Places API + PageSpeed + Alternate Signals)
 export async function runDailyLeadCrawl() {
   console.log('[Cron Job] Running Rebuilt Lead Discovery Pipeline (Google Places API + PageSpeed)...');
 
-  const nichesWeb = ['Dental Clinics', 'Law Firms', 'Real Estate Agencies'];
-  const cities = ['Miami, FL', 'Dubai, UAE', 'Austin, TX', 'Los Angeles, CA', 'London, UK'];
+  let selectedCity = 'Dubai, UAE';
+  try {
+    const { data: locRows } = await supabase
+      .from('discovery_locations')
+      .select('location_name')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+    if (locRows && locRows.length > 0) selectedCity = locRows[0].location_name;
+  } catch (e) {
+    console.warn('[Cron Location Query Warning]:', e.message);
+  }
 
-  const selectedWebNiche = nichesWeb[Math.floor(Math.random() * nichesWeb.length)];
-  const selectedCity = cities[Math.floor(Math.random() * cities.length)];
+  let selectedWebNiche = 'Dental Clinics';
+  try {
+    const { data: webCatRows } = await supabase
+      .from('discovery_categories')
+      .select('category_name')
+      .eq('scope', 'web_dev')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+    if (webCatRows && webCatRows.length > 0) selectedWebNiche = webCatRows[0].category_name;
+  } catch (e) {
+    console.warn('[Cron Web Niche Query Warning]:', e.message);
+  }
 
   let webAdded = 0;
   let aradhyaAdded = 0;
 
+  const targetCities = parseTargetCities(selectedCity);
+
   // A. Discovered Web Dev Candidates via Google Places API (New)
+  for (const city of targetCities) {
+    try {
+      console.log(`[Places API Discovery] Searching for "${selectedWebNiche}" in ${city}...`);
+      let candidates = await searchPlaces(selectedWebNiche, city, 8);
+
+      // PRIORITIZE BUSINESSES WITHOUT A WEBSITE FIRST
+      candidates.sort((a, b) => {
+        const aNoWeb = !a.websiteUri ? 0 : 1;
+        const bNoWeb = !b.websiteUri ? 0 : 1;
+        return aNoWeb - bNoWeb;
+      });
+
+      for (const candidate of candidates) {
+        if (!candidate.id) continue;
+
+        // 1. Deduplication Check via google_place_id
+        const { data: existing } = await supabase
+          .from('leads')
+          .select('id')
+          .eq('google_place_id', candidate.id)
+          .maybeSingle();
+
+        if (existing) {
+          console.log(`[Dedupe Skip] Lead with place_id ${candidate.id} already exists in database.`);
+          continue;
+        }
+
+        // 2. Fetch full Place Details
+        const placeDetails = await getPlaceDetails(candidate.id) || candidate;
+
+        // Reject non-operational businesses
+        if (placeDetails.businessStatus && placeDetails.businessStatus !== 'OPERATIONAL') {
+          console.log(`[Status Reject] Business ${candidate.id} is not OPERATIONAL (${placeDetails.businessStatus}).`);
+          continue;
+        }
+
+        const businessName = placeDetails.displayName?.text || placeDetails.displayName || candidate.displayName?.text || candidate.displayName || 'Discovered Business';
+        const websiteUri = placeDetails.websiteUri || null;
+        const phone = placeDetails.internationalPhoneNumber || null;
+        const rating = placeDetails.rating || candidate.rating || 4.2;
+        const mapUrl = placeDetails.googleMapsUri || candidate.googleMapsUri || `https://www.google.com/maps/place/?q=place_id:${candidate.id}`;
+
+        let qualificationReason = '';
+        let leadObj = null;
+
+        // 3. SCENARIO 1: No Website Listed
+        if (!websiteUri || websiteUri.trim() === '') {
+          const copyPrompt = `Write a concise 1-sentence sales qualification note for outreach to "${businessName}" (${rating}★, ${city}). Fact: They have an active operational Google Business profile but NO website. Explain why they need a modern website to capture mobile leads.`;
+          qualificationReason = (await callGeminiGrounding(copyPrompt)) || `Active ${rating}★ Google Business Profile in ${city} with NO website listed. Missing out on direct online booking traffic.`;
+
+          leadObj = {
+            lead_type: 'web_dev',
+            business_name: businessName,
+            niche: selectedWebNiche,
+            city_state: city,
+            rating: rating,
+            website_url: null,
+            google_map_url: mapUrl,
+            google_place_id: candidate.id,
+            phone_number: phone,
+            email: null,
+            real_lcp_mobile_ms: null,
+            real_lcp_desktop_ms: null,
+            real_performance_score: null,
+            data_source: 'places_api_verified',
+            qualification_reason: qualificationReason,
+            ad_status: 'No Active Website (Verified Places API)',
+            status: 'new'
+          };
+        } 
+        // 4. SCENARIO 2 & ALTERNATE SERVICE: Website Exists -> PageSpeed Insights API Check
+        else {
+          console.log(`[PageSpeed API] Analyzing ${websiteUri} for ${businessName}...`);
+          const pageSpeedResult = await analyzePageSpeed(websiteUri, 'mobile');
+          const { lcpMs, performanceScore } = pageSpeedResult;
+
+          const isSlowLcp = lcpMs !== null && lcpMs > 3500;
+          const isPoorScore = performanceScore !== null && performanceScore < 50;
+
+          // SCENARIO 2: Flawed Website (Failed PageSpeed thresholds)
+          if (isSlowLcp || isPoorScore) {
+            const lcpSec = lcpMs ? (lcpMs / 1000).toFixed(1) : 'N/A';
+            const scoreStr = performanceScore !== null ? `${performanceScore}/100` : 'N/A';
+
+            const copyPrompt = `Write a concise 1-sentence sales qualification note for outreach to "${businessName}" in ${city}. Measured Real Data: Mobile LCP load speed is ${lcpSec}s and PageSpeed Performance score is ${scoreStr}. Pitch Next.js speed optimization.`;
+            qualificationReason = (await callGeminiGrounding(copyPrompt)) || `Verified website has critical performance flaws: Mobile LCP is ${lcpSec}s (target <2.5s) with a Google PageSpeed score of ${scoreStr}.`;
+
+            leadObj = {
+              lead_type: 'web_dev',
+              business_name: businessName,
+              niche: selectedWebNiche,
+              city_state: city,
+              rating: rating,
+              website_url: websiteUri,
+              google_map_url: mapUrl,
+              google_place_id: candidate.id,
+              phone_number: phone,
+              email: null,
+              real_lcp_mobile_ms: lcpMs,
+              real_lcp_desktop_ms: null,
+              real_performance_score: performanceScore,
+              data_source: 'places_api_verified',
+              qualification_reason: qualificationReason,
+              ad_status: `Flawed Website (LCP: ${lcpSec}s, Score: ${scoreStr})`,
+              status: 'new'
+            };
+          } 
+          // SCENARIO 3: Good Website -> Alternate Service Signals Pipeline
+          else {
+            console.log(`[Alternate Services] Business ${businessName} website passed PageSpeed (${performanceScore !== null ? performanceScore : 'N/A'}/100). Routing to Alternate Signals...`);
+            const altResult = await evaluateAlternateSignals(placeDetails, websiteUri);
+
+            const copyPrompt = `Write a 1-sentence sales qualification note for outreach to "${businessName}" in ${city}. Their website passed speed tests (${performanceScore !== null ? performanceScore : 'Pass'}/100). Alternate opportunity identified: ${altResult.primaryAlternateService}. Missing signals: ${altResult.signals.missingSignals.join(', ')}.`;
+            qualificationReason = (await callGeminiGrounding(copyPrompt)) || `Website passes speed checks. High-intent candidate for ${altResult.primaryAlternateService.replace(/_/g, ' ')}. Signals: ${altResult.signals.missingSignals.join('; ')}.`;
+
+            leadObj = {
+              lead_type: 'web_dev',
+              business_name: businessName,
+              niche: selectedWebNiche,
+              city_state: city,
+              rating: rating,
+              website_url: websiteUri,
+              google_map_url: mapUrl,
+              google_place_id: candidate.id,
+              phone_number: phone,
+              email: null,
+              real_lcp_mobile_ms: lcpMs,
+              real_lcp_desktop_ms: null,
+              real_performance_score: performanceScore,
+              data_source: 'places_api_verified',
+              alternate_service_signals: {
+                primary_alternate_service: altResult.primaryAlternateService,
+                ...altResult.signals
+              },
+              qualification_reason: qualificationReason,
+              ad_status: `Alternate Service Lead (${altResult.primaryAlternateService})`,
+              status: 'new'
+            };
+          }
+        }
+
+        // Insert into Supabase with clean payload (matching Supabase table schema)
+        if (leadObj) {
+          const validSchemaKeys = new Set([
+            'lead_type',
+            'business_name',
+            'niche',
+            'city_state',
+            'rating',
+            'website_url',
+            'qualification_reason',
+            'ad_status',
+            'status',
+            'google_place_id',
+            'real_lcp_mobile_ms',
+            'real_lcp_desktop_ms',
+            'real_performance_score',
+            'data_source',
+            'alternate_service_signals'
+          ]);
+
+          const cleanPayload = {};
+          for (const [k, v] of Object.entries(leadObj)) {
+            if (v !== null && v !== undefined && validSchemaKeys.has(k)) {
+              cleanPayload[k] = v;
+            }
+          }
+
+          const { data: inserted, error: insErr } = await supabase
+            .from('leads')
+            .insert([cleanPayload])
+            .select()
+            .single();
+
+          if (!insErr && inserted) {
+            webAdded++;
+            console.log(`[Lead Inserted] Successfully saved "${businessName}" (${inserted.status || leadObj.status}) to Supabase.`);
+            // Sync full leadObj (with phone, map URL, and place ID) to Google Sheets
+            syncLeadToGoogleSheet({ ...inserted, ...leadObj }).catch(e => console.warn('[Google Sheets Sync Error]:', e.message));
+            verifyLead({ ...inserted, ...leadObj }).catch(e => console.warn('[Verification Error]:', e.message));
+          } else if (insErr) {
+            console.warn(`[Supabase Lead Insert Error] ${businessName}:`, insErr.message);
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`[Cron Web Lead Pipeline Error for ${city}]:`, err.message);
+    }
+  }
+
+  // B. Aradhya Video Leads (Google Places API + Place Details + Deny-List + Meta Ad Check)
+  let selectedAradhyaNiche = 'D2C Skincare & Beauty';
   try {
-    console.log(`[Places API Discovery] Searching for "${selectedWebNiche}" in ${selectedCity}...`);
-    const candidates = await searchPlaces(selectedWebNiche, selectedCity, 8);
+    const { data: aradhyaCatRows } = await supabase
+      .from('discovery_categories')
+      .select('category_name')
+      .eq('scope', 'aradhya')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+    if (aradhyaCatRows && aradhyaCatRows.length > 0) selectedAradhyaNiche = aradhyaCatRows[0].category_name;
+  } catch (e) {
+    console.warn('[Cron Aradhya Niche Query Warning]:', e.message);
+  }
 
-    for (const candidate of candidates) {
-      if (!candidate.id) continue;
+  for (const city of targetCities) {
+    try {
+      console.log(`[Places API Aradhya Discovery] Searching for "${selectedAradhyaNiche}" in ${city}...`);
+      const aradhyaCandidates = await searchPlaces(selectedAradhyaNiche, city, 6);
 
-      // 1. Deduplication Check via google_place_id
-      const { data: existing } = await supabase
-        .from('leads')
-        .select('id')
-        .eq('google_place_id', candidate.id)
-        .maybeSingle();
+      for (const candidate of aradhyaCandidates) {
+        if (!candidate.id) continue;
 
-      if (existing) {
-        console.log(`[Dedupe Skip] Lead with place_id ${candidate.id} already exists in database.`);
-        continue;
-      }
+        const businessName = candidate.displayName?.text || candidate.displayName || 'Discovered Brand';
 
-      // 2. Fetch full Place Details
-      const placeDetails = await getPlaceDetails(candidate.id) || candidate;
+        // 1. Brand Deny-List Check
+        if (isDeniedBrand(businessName)) {
+          console.log(`[Deny-List Skip] Brand "${businessName}" matched exclusion list.`);
+          continue;
+        }
 
-      // Reject non-operational businesses
-      if (placeDetails.businessStatus && placeDetails.businessStatus !== 'OPERATIONAL') {
-        console.log(`[Status Reject] Business ${candidate.id} is not OPERATIONAL (${placeDetails.businessStatus}).`);
-        continue;
-      }
+        // 2. Deduplication Check via google_place_id
+        const { data: existing } = await supabase
+          .from('leads')
+          .select('id')
+          .eq('google_place_id', candidate.id)
+          .maybeSingle();
 
-      const businessName = placeDetails.displayName?.text || placeDetails.displayName || candidate.displayName?.text || candidate.displayName || 'Discovered Business';
-      const websiteUri = placeDetails.websiteUri || null;
-      const phone = placeDetails.internationalPhoneNumber || null;
-      const rating = placeDetails.rating || candidate.rating || 4.2;
-      const mapUrl = placeDetails.googleMapsUri || candidate.googleMapsUri || `https://www.google.com/maps/place/?q=place_id:${candidate.id}`;
+        if (existing) {
+          console.log(`[Dedupe Skip] Aradhya lead with place_id ${candidate.id} already exists.`);
+          continue;
+        }
 
-      let qualificationReason = '';
-      let leadObj = null;
+        // 3. Fetch Place Details
+        const placeDetails = await getPlaceDetails(candidate.id) || candidate;
 
-      // 3. SCENARIO 1: No Website Listed
-      if (!websiteUri || websiteUri.trim() === '') {
-        const copyPrompt = `Write a concise 1-sentence sales qualification note for outreach to "${businessName}" (${rating}★, ${selectedCity}). Fact: They have an active operational Google Business profile but NO website. Explain why they need a modern website to capture mobile leads.`;
-        qualificationReason = (await callGeminiGrounding(copyPrompt)) || `Active ${rating}★ Google Business Profile in ${selectedCity} with NO website listed. Missing out on direct online booking traffic.`;
+        if (placeDetails.businessStatus && placeDetails.businessStatus !== 'OPERATIONAL') {
+          console.log(`[Status Reject] Aradhya Brand ${candidate.id} is not OPERATIONAL.`);
+          continue;
+        }
 
-        leadObj = {
-          lead_type: 'web_dev',
+        const websiteUri = placeDetails.websiteUri || null;
+        const phone = placeDetails.internationalPhoneNumber || null;
+        const rating = placeDetails.rating || candidate.rating || 4.5;
+        const mapUrl = placeDetails.googleMapsUri || candidate.googleMapsUri || `https://www.google.com/maps/place/?q=place_id:${candidate.id}`;
+
+        // 4. Gemini Synthesized Qualification Copy
+        const copyPrompt = `Write a 1-sentence outreach qualification note for D2C/visual brand "${businessName}" (${rating}★, ${city}). Explain why switching from static image ads to 4K AI Video Spokesperson shorts increases Meta ad CTR by 2.8x.`;
+        const qualificationReason = (await callGeminiGrounding(copyPrompt)) || `Verified visual brand running static Meta ads. Prime candidate for 4K AI Video Spokesperson to boost ad CTR by 2.8x.`;
+
+        const leadObj = {
+          lead_type: 'aradhya_video',
           business_name: businessName,
-          niche: selectedWebNiche,
-          city_state: selectedCity,
+          niche: selectedAradhyaNiche,
+          city_state: city,
           rating: rating,
-          website_url: null,
+          website_url: websiteUri,
           google_map_url: mapUrl,
           google_place_id: candidate.id,
           phone_number: phone,
           email: null,
-          real_lcp_mobile_ms: null,
-          real_lcp_desktop_ms: null,
-          real_performance_score: null,
           data_source: 'places_api_verified',
           qualification_reason: qualificationReason,
-          ad_status: 'No Active Website (Verified Places API)',
+          ad_status: 'Static Meta Image Ads Active (Verified Places API)',
           status: 'new'
         };
-      } 
-      // 4. SCENARIO 2 & ALTERNATE SERVICE: Website Exists -> PageSpeed Insights API Check
-      else {
-        console.log(`[PageSpeed API] Analyzing ${websiteUri} for ${businessName}...`);
-        const pageSpeedResult = await analyzePageSpeed(websiteUri, 'mobile');
-        const { lcpMs, performanceScore } = pageSpeedResult;
 
-        const isSlowLcp = lcpMs !== null && lcpMs > 3500;
-        const isPoorScore = performanceScore !== null && performanceScore < 50;
-
-        // SCENARIO 2: Flawed Website (Failed PageSpeed thresholds)
-        if (isSlowLcp || isPoorScore) {
-          const lcpSec = lcpMs ? (lcpMs / 1000).toFixed(1) : 'N/A';
-          const scoreStr = performanceScore !== null ? `${performanceScore}/100` : 'N/A';
-
-          const copyPrompt = `Write a concise 1-sentence sales qualification note for outreach to "${businessName}" in ${selectedCity}. Measured Real Data: Mobile LCP load speed is ${lcpSec}s and PageSpeed Performance score is ${scoreStr}. Pitch Next.js speed optimization.`;
-          qualificationReason = (await callGeminiGrounding(copyPrompt)) || `Verified website has critical performance flaws: Mobile LCP is ${lcpSec}s (target <2.5s) with a Google PageSpeed score of ${scoreStr}.`;
-
-          leadObj = {
-            lead_type: 'web_dev',
-            business_name: businessName,
-            niche: selectedWebNiche,
-            city_state: selectedCity,
-            rating: rating,
-            website_url: websiteUri,
-            google_map_url: mapUrl,
-            google_place_id: candidate.id,
-            phone_number: phone,
-            email: null,
-            real_lcp_mobile_ms: lcpMs,
-            real_lcp_desktop_ms: null,
-            real_performance_score: performanceScore,
-            data_source: 'places_api_verified',
-            qualification_reason: qualificationReason,
-            ad_status: `Flawed Website (LCP: ${lcpSec}s, Score: ${scoreStr})`,
-            status: 'new'
-          };
-        } 
-        // SCENARIO 3: Good Website -> Alternate Service Signals Pipeline
-        else {
-          console.log(`[Alternate Services] Business ${businessName} website passed PageSpeed (${performanceScore !== null ? performanceScore : 'N/A'}/100). Routing to Alternate Signals...`);
-          const altResult = await evaluateAlternateSignals(placeDetails, websiteUri);
-
-          const copyPrompt = `Write a 1-sentence sales qualification note for outreach to "${businessName}" in ${selectedCity}. Their website passed speed tests (${performanceScore !== null ? performanceScore : 'Pass'}/100). Alternate opportunity identified: ${altResult.primaryAlternateService}. Missing signals: ${altResult.signals.missingSignals.join(', ')}.`;
-          qualificationReason = (await callGeminiGrounding(copyPrompt)) || `Website passes speed checks. High-intent candidate for ${altResult.primaryAlternateService.replace(/_/g, ' ')}. Signals: ${altResult.signals.missingSignals.join('; ')}.`;
-
-          leadObj = {
-            lead_type: 'web_dev',
-            business_name: businessName,
-            niche: selectedWebNiche,
-            city_state: selectedCity,
-            rating: rating,
-            website_url: websiteUri,
-            google_map_url: mapUrl,
-            google_place_id: candidate.id,
-            phone_number: phone,
-            email: null,
-            real_lcp_mobile_ms: lcpMs,
-            real_lcp_desktop_ms: null,
-            real_performance_score: performanceScore,
-            data_source: 'places_api_verified',
-            alternate_service_signals: {
-              primary_alternate_service: altResult.primaryAlternateService,
-              ...altResult.signals
-            },
-            qualification_reason: qualificationReason,
-            ad_status: `Alternate Service Lead (${altResult.primaryAlternateService})`,
-            status: 'new'
-          };
-        }
-      }
-
-      // Insert into Supabase with clean payload (matching Supabase table schema)
-      if (leadObj) {
         const validSchemaKeys = new Set([
           'lead_type',
           'business_name',
@@ -311,12 +489,7 @@ export async function runDailyLeadCrawl() {
           'ad_status',
           'status',
           'google_place_id',
-          'real_lcp_mobile_ms',
-          'real_lcp_desktop_ms',
-          'real_performance_score',
-          'data_source',
-          'alternate_service_signals',
-          'needs_size_review'
+          'data_source'
         ]);
 
         const cleanPayload = {};
@@ -333,123 +506,17 @@ export async function runDailyLeadCrawl() {
           .single();
 
         if (!insErr && inserted) {
-          webAdded++;
-          console.log(`[Lead Inserted] Successfully saved "${businessName}" (${inserted.status || leadObj.status}) to Supabase.`);
-          // Sync full leadObj (with phone, map URL, and place ID) to Google Sheets
+          aradhyaAdded++;
+          console.log(`[Aradhya Lead Inserted] Saved "${businessName}" to Supabase.`);
           syncLeadToGoogleSheet({ ...inserted, ...leadObj }).catch(e => console.warn('[Google Sheets Sync Error]:', e.message));
           verifyLead({ ...inserted, ...leadObj }).catch(e => console.warn('[Verification Error]:', e.message));
         } else if (insErr) {
-          console.warn(`[Supabase Lead Insert Error] ${businessName}:`, insErr.message);
+          console.warn(`[Supabase Aradhya Lead Insert Error] ${businessName}:`, insErr.message);
         }
       }
+    } catch (err) {
+      console.error(`[Cron Aradhya Lead Pipeline Error for ${city}]:`, err.message);
     }
-  } catch (err) {
-    console.error('[Cron Web Lead Pipeline Error]:', err.message);
-  }
-
-  // B. Aradhya Video Leads (Google Places API + Place Details + Deny-List + Meta Ad Check)
-  const nichesAradhya = ['D2C Skincare & Beauty', 'Luxury Real Estate', 'MedSpas & Aesthetics'];
-  const selectedAradhyaNiche = nichesAradhya[Math.floor(Math.random() * nichesAradhya.length)];
-
-  try {
-    console.log(`[Places API Aradhya Discovery] Searching for "${selectedAradhyaNiche}" in ${selectedCity}...`);
-    const aradhyaCandidates = await searchPlaces(selectedAradhyaNiche, selectedCity, 6);
-
-    for (const candidate of aradhyaCandidates) {
-      if (!candidate.id) continue;
-
-      const businessName = candidate.displayName?.text || candidate.displayName || 'Discovered Brand';
-
-      // 1. Brand Deny-List Check
-      if (isDeniedBrand(businessName)) {
-        console.log(`[Deny-List Skip] Brand "${businessName}" matched exclusion list.`);
-        continue;
-      }
-
-      // 2. Deduplication Check via google_place_id
-      const { data: existing } = await supabase
-        .from('leads')
-        .select('id')
-        .eq('google_place_id', candidate.id)
-        .maybeSingle();
-
-      if (existing) {
-        console.log(`[Dedupe Skip] Aradhya lead with place_id ${candidate.id} already exists.`);
-        continue;
-      }
-
-      // 3. Fetch Place Details
-      const placeDetails = await getPlaceDetails(candidate.id) || candidate;
-
-      if (placeDetails.businessStatus && placeDetails.businessStatus !== 'OPERATIONAL') {
-        console.log(`[Status Reject] Aradhya Brand ${candidate.id} is not OPERATIONAL.`);
-        continue;
-      }
-
-      const websiteUri = placeDetails.websiteUri || null;
-      const phone = placeDetails.internationalPhoneNumber || null;
-      const rating = placeDetails.rating || candidate.rating || 4.5;
-      const mapUrl = placeDetails.googleMapsUri || candidate.googleMapsUri || `https://www.google.com/maps/place/?q=place_id:${candidate.id}`;
-
-      // 4. Gemini Synthesized Qualification Copy
-      const copyPrompt = `Write a 1-sentence outreach qualification note for D2C/visual brand "${businessName}" (${rating}★, ${selectedCity}). Explain why switching from static image ads to 4K AI Video Spokesperson shorts increases Meta ad CTR by 2.8x.`;
-      const qualificationReason = (await callGeminiGrounding(copyPrompt)) || `Verified visual brand running static Meta ads. Prime candidate for 4K AI Video Spokesperson to boost ad CTR by 2.8x.`;
-
-      const leadObj = {
-        lead_type: 'aradhya_video',
-        business_name: businessName,
-        niche: selectedAradhyaNiche,
-        city_state: selectedCity,
-        rating: rating,
-        website_url: websiteUri,
-        google_map_url: mapUrl,
-        google_place_id: candidate.id,
-        phone_number: phone,
-        email: null,
-        data_source: 'places_api_verified',
-        qualification_reason: qualificationReason,
-        ad_status: 'Static Meta Image Ads Active (Verified Places API)',
-        status: 'new'
-      };
-
-      const validSchemaKeys = new Set([
-        'lead_type',
-        'business_name',
-        'niche',
-        'city_state',
-        'rating',
-        'website_url',
-        'qualification_reason',
-        'ad_status',
-        'status',
-        'google_place_id',
-        'data_source'
-      ]);
-
-      const cleanPayload = {};
-      for (const [k, v] of Object.entries(leadObj)) {
-        if (v !== null && v !== undefined && validSchemaKeys.has(k)) {
-          cleanPayload[k] = v;
-        }
-      }
-
-      const { data: inserted, error: insErr } = await supabase
-        .from('leads')
-        .insert([cleanPayload])
-        .select()
-        .single();
-
-      if (!insErr && inserted) {
-        aradhyaAdded++;
-        console.log(`[Aradhya Lead Inserted] Saved "${businessName}" to Supabase.`);
-        syncLeadToGoogleSheet({ ...inserted, ...leadObj }).catch(e => console.warn('[Google Sheets Sync Error]:', e.message));
-        verifyLead({ ...inserted, ...leadObj }).catch(e => console.warn('[Verification Error]:', e.message));
-      } else if (insErr) {
-        console.warn(`[Supabase Aradhya Lead Insert Error] ${businessName}:`, insErr.message);
-      }
-    }
-  } catch (err) {
-    console.error('[Cron Aradhya Lead Pipeline Error]:', err.message);
   }
 
   console.log(`[Cron Job] Completed lead discovery. Added ${webAdded} Web Dev/Alternate leads & ${aradhyaAdded} AI Video leads to Supabase.`);

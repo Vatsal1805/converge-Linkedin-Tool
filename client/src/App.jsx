@@ -11,6 +11,7 @@ import GitHubSync from './pages/GitHubSync';
 import Verification from './pages/Verification';
 import AdIntelligence from './pages/AdIntelligence';
 import IntentSignals from './pages/IntentSignals';
+import Settings from './pages/Settings';
 
 export default function App() {
   const [authenticated, setAuthenticated] = useState(false);
@@ -18,7 +19,7 @@ export default function App() {
   // Persist Active Tab across page reloads & URL hashes
   const getInitialTab = () => {
     const hash = window.location.hash.replace('#', '');
-    const validTabs = ['dashboard', 'generator', 'calendar', 'tracker', 'competitors', 'ad-intelligence', 'intent-signals', 'verification', 'github'];
+    const validTabs = ['dashboard', 'generator', 'calendar', 'tracker', 'competitors', 'ad-intelligence', 'intent-signals', 'verification', 'github', 'settings'];
     if (hash && validTabs.includes(hash)) return hash;
     const saved = localStorage.getItem('converge_active_tab');
     if (saved && validTabs.includes(saved)) return saved;
@@ -95,36 +96,7 @@ export default function App() {
 
           {activeTab === 'github' && <GitHubSync />}
 
-          {activeTab === 'settings' && (
-            <div className="space-y-6">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold font-heading text-white">System Settings & Integrations</h1>
-                <p className="text-xs sm:text-sm text-gray-400">Environment status and API integrations.</p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex items-center justify-between p-4 bg-[#121216] border border-[#23232F] rounded-xl text-sm font-mono">
-                  <span>Supabase PostgreSQL</span>
-                  <span className="px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 text-xs border border-emerald-500/20">Connected</span>
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-[#121216] border border-[#23232F] rounded-xl text-sm font-mono">
-                  <span>OpenRouter (Multi-LLM)</span>
-                  <span className="px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 text-xs border border-emerald-500/20">Connected</span>
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-[#121216] border border-[#23232F] rounded-xl text-sm font-mono">
-                  <span>Perplexity Sonar API</span>
-                  <span className="px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 text-xs border border-emerald-500/20">Ready</span>
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-[#121216] border border-[#23232F] rounded-xl text-sm font-mono">
-                  <span>Team Password Gate</span>
-                  <span className="px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 text-xs border border-emerald-500/20">Active (Configured in .env)</span>
-                </div>
-              </div>
-            </div>
-          )}
+          {activeTab === 'settings' && <Settings />}
         </main>
       </div>
     </div>
