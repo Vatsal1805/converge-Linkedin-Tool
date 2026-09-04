@@ -71,11 +71,65 @@ Return a clean structured analysis covering:
 }
 
 /**
+ * Helper to check if a URL is a stock photo/placeholder domain
+ */
+export function isStockPhotoUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  const lower = url.toLowerCase();
+  return (
+    lower.includes('unsplash.com') ||
+    lower.includes('pexels.com') ||
+    lower.includes('pixabay.com') ||
+    lower.includes('placeholder.com') ||
+    lower.includes('via.placeholder')
+  );
+}
+
+/**
+ * Purges existing fabricated Unsplash/stock photo rows from tracked_ads
+ */
+export async function purgeFabricatedAdData() {
+  try {
+    console.log('[Ad Intelligence] Purging fabricated stock photo rows from tracked_ads table...');
+    const { data: fakeRows, error: findErr } = await supabase
+      .from('tracked_ads')
+      .select('id, creative_image_url')
+      .or('creative_image_url.ilike.%unsplash.com%,creative_image_url.ilike.%pexels.com%,creative_image_url.ilike.%pixabay.com%,creative_image_url.ilike.%placeholder.com%');
+
+    if (findErr) {
+      console.warn('[Ad Intelligence Purge Warning]:', findErr.message);
+      return { purgedCount: 0 };
+    }
+
+    if (fakeRows && fakeRows.length > 0) {
+      const idsToDelete = fakeRows.map(r => r.id);
+      const { error: delErr } = await supabase
+        .from('tracked_ads')
+        .delete()
+        .in('id', idsToDelete);
+
+      if (!delErr) {
+        console.log(`[Ad Intelligence Purge] Successfully deleted ${idsToDelete.length} fabricated ad records.`);
+        return { purgedCount: idsToDelete.length };
+      }
+    }
+
+    return { purgedCount: 0 };
+  } catch (err) {
+    console.error('[Ad Intelligence Purge Error]:', err.message);
+    return { purgedCount: 0 };
+  }
+}
+
+/**
  * 1. Daily Tracking Job: Queries Meta & LinkedIn Ad Libraries for active competitor ads
  */
 export async function runDailyAdTrackingJob() {
   console.log('[Ad Intelligence] Starting daily competitor ad tracking job...');
   let trackedCount = 0;
+
+  // Purge any legacy fabricated stock photo data before tracking
+  await purgeFabricatedAdData();
 
   try {
     let { data: competitors } = await supabase
@@ -84,7 +138,6 @@ export async function runDailyAdTrackingJob() {
       .neq('active', false);
 
     if (!competitors || competitors.length === 0) {
-      console.log('[Ad Intelligence] Querying all competitors...');
       const { data: allComps } = await supabase.from('competitors').select('*');
       competitors = allComps || [];
     }
@@ -95,102 +148,78 @@ export async function runDailyAdTrackingJob() {
     }
 
     const today = new Date().toISOString();
+    const metaToken = process.env.META_ACCESS_TOKEN || process.env.FACEBOOK_ACCESS_TOKEN;
 
     for (const comp of competitors) {
-      // Grounded Place & Ad Library Query
-      const queryPrompt = `Search Meta Ad Library and LinkedIn Ad Library for active ads running under digital agency "${comp.name}" (${comp.website_url || ''}). Return PURE JSON ONLY: {"ads": [{"platform_ad_id": "meta_${comp.name.toLowerCase().replace(/\s+/g, '_')}_1", "source": "meta_ad_library", "ad_copy_text": "Web Dev starting at $1500. 10-day turnaround.", "creative_image_url": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600"}]}`;
-
-      const geminiKey = process.env.GEMINI_API_KEY;
-      const openRouterKey = process.env.OPENROUTER_API_KEY;
       let rawAds = [];
 
-      if (geminiKey && !geminiKey.includes('placeholder')) {
+      // 1. Direct Meta Graph API (ads_archive) if access token available
+      if (metaToken && !metaToken.includes('placeholder')) {
         try {
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: queryPrompt }] }],
-              tools: [{ google_search: {} }],
-              generationConfig: { temperature: 0.2 }
-            })
-          });
-          if (res.ok) {
-            const data = await res.json();
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text) {
-              const clean = text.replace(/```json|```/g, '').trim();
-              const match = clean.match(/\{[\s\S]*\}/);
-              if (match) {
-                const parsed = JSON.parse(match[0]);
-                rawAds = parsed.ads || [];
-              }
-            }
+          const graphUrl = `https://graph.facebook.com/v19.0/ads_archive?search_terms=${encodeURIComponent(comp.name)}&ad_reached_countries=['US','AE']&fields=id,ad_creative_bodies,ad_snapshot_url,ad_delivery_start_time&access_token=${metaToken}`;
+          const graphRes = await fetch(graphUrl);
+          if (graphRes.ok) {
+            const graphData = await graphRes.json();
+            const items = graphData.data || [];
+            rawAds = items.map(item => ({
+              platform_ad_id: `meta_${item.id}`,
+              source: 'meta_ad_library',
+              ad_copy_text: item.ad_creative_bodies?.[0] || `Active Meta Ad for ${comp.name}`,
+              creative_image_url: item.ad_snapshot_url || null,
+              first_seen_at: item.ad_delivery_start_time || today
+            }));
           }
-        } catch (e) {
-          console.warn(`[Ad Tracking Error for ${comp.name}]:`, e.message);
+        } catch (graphErr) {
+          console.warn(`[Meta Graph API Warning for ${comp.name}]:`, graphErr.message);
         }
       }
 
-      // Fallback via OpenRouter DeepSeek / Gemini Lite
-      if ((!rawAds || rawAds.length === 0) && openRouterKey && !openRouterKey.includes('placeholder')) {
-        try {
-          const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${openRouterKey}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              model: 'deepseek/deepseek-chat',
-              messages: [{ role: 'user', content: queryPrompt }],
-              temperature: 0.2
-            })
-          });
-          if (res.ok) {
-            const data = await res.json();
-            const text = data.choices?.[0]?.message?.content;
-            if (text) {
-              const clean = text.replace(/```json|```/g, '').trim();
-              const match = clean.match(/\{[\s\S]*\}/);
-              if (match) {
-                const parsed = JSON.parse(match[0]);
-                rawAds = parsed.ads || [];
+      // 2. Real search lookup fallback via Gemini Search Grounding (without stock photo defaults)
+      if (rawAds.length === 0) {
+        const queryPrompt = `Search public Meta Ad Library for active ads running under agency "${comp.name}" (${comp.website_url || ''}). Return PURE JSON ONLY: {"ads": [{"platform_ad_id": "...", "source": "meta_ad_library", "ad_copy_text": "...", "creative_image_url": "..."}]}. Return empty array {"ads": []} if no active ads are found online! DO NOT invent stock photo URLs!`;
+
+        const geminiKey = process.env.GEMINI_API_KEY;
+        if (geminiKey && !geminiKey.includes('placeholder')) {
+          try {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: queryPrompt }] }],
+                tools: [{ google_search: {} }],
+                generationConfig: { temperature: 0.1 }
+              })
+            });
+            if (res.ok) {
+              const data = await res.json();
+              const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (text) {
+                const clean = text.replace(/```json|```/g, '').trim();
+                const match = clean.match(/\{[\s\S]*\}/);
+                if (match) {
+                  const parsed = JSON.parse(match[0]);
+                  rawAds = parsed.ads || [];
+                }
               }
             }
+          } catch (e) {
+            console.warn(`[Ad Tracking Error for ${comp.name}]:`, e.message);
           }
-        } catch (e) {
-          console.warn(`[Ad Tracking OpenRouter Error for ${comp.name}]:`, e.message);
         }
       }
 
-      if (!rawAds || rawAds.length === 0) {
-        const cleanName = comp.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        rawAds = [
-          {
-            platform_ad_id: `meta_${cleanName}_ad1`,
-            source: 'meta_ad_library',
-            ad_copy_text: `Stop losing 80% of mobile visitors to 4-second load times. ${comp.name} custom Next.js web applications with 10-day turnaround.`,
-            creative_image_url: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600',
-            days_active: 14,
-            ai_analysis: `Hypothesis (Inference): Active for 14 days. Creative angle targets speed pain point with Next.js offer.`
-          },
-          {
-            platform_ad_id: `linkedin_${cleanName}_ad2`,
-            source: 'linkedin_ad_library',
-            ad_copy_text: `Why traditional B2B marketing is evolving in 2026. How ${comp.name} ranks clients inside AI search engine responses.`,
-            creative_image_url: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=600',
-            days_active: 9,
-            ai_analysis: `Hypothesis (Inference): Active for 9 days. Thought leadership angle reframing SEO for B2B tech brands.`
-          }
-        ];
-      }
-
-      // Process Discovered Ads
+      // Process Discovered Real Ads (with Strict Stock Photo Guard)
       const currentPlatformIds = new Set();
 
       for (let i = 0; i < rawAds.length; i++) {
         const adItem = rawAds[i];
+
+        // Safeguard: Reject any stock photo URL
+        if (isStockPhotoUrl(adItem.creative_image_url)) {
+          console.warn(`[Ad Safeguard Reject] Stock photo URL rejected for "${comp.name}": ${adItem.creative_image_url}`);
+          continue;
+        }
+
         if (!adItem.platform_ad_id) {
           adItem.platform_ad_id = `ad_${comp.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${i + 1}`;
         }
@@ -204,7 +233,6 @@ export async function runDailyAdTrackingJob() {
           .maybeSingle();
 
         if (existing) {
-          // Recompute days_active
           const firstSeen = new Date(existing.first_seen_at);
           const now = new Date();
           const daysActive = Math.max(1, Math.ceil((now - firstSeen) / (1000 * 60 * 60 * 24)));
@@ -218,7 +246,6 @@ export async function runDailyAdTrackingJob() {
             })
             .eq('id', existing.id);
         } else {
-          // Insert NEW ad
           await supabase
             .from('tracked_ads')
             .insert([
@@ -228,7 +255,7 @@ export async function runDailyAdTrackingJob() {
                 platform_ad_id: adItem.platform_ad_id,
                 creative_image_url: adItem.creative_image_url || null,
                 ad_copy_text: adItem.ad_copy_text || 'Active Ad',
-                first_seen_at: today,
+                first_seen_at: adItem.first_seen_at || today,
                 last_seen_at: today,
                 days_active: 1,
                 analysis_status: 'too_new'
@@ -317,3 +344,24 @@ export async function runDelayedAdAnalysisJob(forceAll = false) {
     return { success: false, error: err.message };
   }
 }
+
+/**
+ * Helper to check active Meta Ad Library ads count for a business name
+ * @param {string} businessName 
+ * @returns {Promise<{activeAdsCount: number}>}
+ */
+export async function checkMetaAds(businessName) {
+  if (!businessName) return { activeAdsCount: 0 };
+  try {
+    const { data, count } = await supabase
+      .from('tracked_ads')
+      .select('id', { count: 'exact' })
+      .ilike('ad_copy_text', `%${businessName}%`)
+      .is('stopped_running_at', null);
+
+    return { activeAdsCount: count || 0 };
+  } catch (err) {
+    return { activeAdsCount: 0 };
+  }
+}
+

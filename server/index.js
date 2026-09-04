@@ -98,6 +98,7 @@ app.listen(PORT, () => {
       const { default: verificationRoutes } = await import('./routes/verification.js');
       const { default: adIntelligenceRoutes } = await import('./routes/adIntelligence.js');
       const { default: intentSignalsRoutes } = await import('./routes/intentSignals.js');
+      const { default: settingsRoutes, seedDefaultDiscoverySettings } = await import('./routes/settings.js');
       const { initScheduledJobs } = await import('./cron.js');
 
       app.use('/api', generatorRoutes);
@@ -109,6 +110,9 @@ app.listen(PORT, () => {
       app.use('/api/verification', verificationRoutes);
       app.use('/api/ad-intelligence', adIntelligenceRoutes);
       app.use('/api/intent-signals', intentSignalsRoutes);
+      app.use('/api/settings', settingsRoutes);
+
+      seedDefaultDiscoverySettings().catch(e => console.warn('[Settings Seed Error]:', e.message));
 
       initScheduledJobs();
 

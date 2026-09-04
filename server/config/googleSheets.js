@@ -34,7 +34,7 @@ export async function syncLeadToGoogleSheet(lead) {
 
   const cleanPhone = formatUniversalPhoneNumber(lead.phone_number);
 
-  // Exact column order matching user's Google Sheet
+  // Exact 16-column order matching user's Google Sheet (Columns A to P)
   const leadRow = {
     Date: new Date().toLocaleDateString(),
     Type: lead.lead_type || 'web_dev',
@@ -43,9 +43,14 @@ export async function syncLeadToGoogleSheet(lead) {
     Location: lead.city_state || '',
     Rating: lead.rating || '',
     'Google Maps URL': lead.google_map_url || '',
+    'Google Place ID': lead.google_place_id || '',
     Phone: cleanPhone,
     Email: lead.email || '',
     'Website URL': lead.website_url || 'No Website',
+    'Mobile LCP (ms)': lead.real_lcp_mobile_ms !== undefined && lead.real_lcp_mobile_ms !== null ? lead.real_lcp_mobile_ms : '',
+    'PageSpeed Score': lead.real_performance_score !== undefined && lead.real_performance_score !== null ? lead.real_performance_score : '',
+    'Data Source': lead.data_source || 'places_api_verified',
+    'Alternate Service': lead.alternate_service || '',
     'Qualification Reason': lead.qualification_reason || ''
   };
 
@@ -68,9 +73,9 @@ export async function syncLeadToGoogleSheet(lead) {
       // Auto-write Header Row if sheet is brand new/empty!
       const rows = await sheet.getRows();
       if (sheet.rowCount <= 1 && rows.length === 0) {
-        console.log('[Google Sheets API] Sheet is empty. Automatically writing Header Row...');
+        console.log('[Google Sheets API] Sheet is empty. Automatically writing 16-column Header Row...');
         await sheet.setHeaderRow([
-          'Date', 'Type', 'Business Name', 'Niche', 'Location', 'Rating', 'Google Maps URL', 'Phone', 'Email', 'Website URL', 'Qualification Reason'
+          'Date', 'Type', 'Business Name', 'Niche', 'Location', 'Rating', 'Google Maps URL', 'Google Place ID', 'Phone', 'Email', 'Website URL', 'Mobile LCP (ms)', 'PageSpeed Score', 'Data Source', 'Alternate Service', 'Qualification Reason'
         ]);
       }
 
@@ -98,9 +103,14 @@ export async function syncLeadToGoogleSheet(lead) {
           city_state: leadRow.Location,
           rating: leadRow.Rating,
           google_map_url: leadRow['Google Maps URL'],
+          google_place_id: leadRow['Google Place ID'],
           phone_number: leadRow.Phone,
           email: leadRow.Email,
           website_url: leadRow['Website URL'],
+          mobile_lcp_ms: leadRow['Mobile LCP (ms)'],
+          pagespeed_score: leadRow['PageSpeed Score'],
+          data_source: leadRow['Data Source'],
+          alternate_service: leadRow['Alternate Service'],
           qualification_reason: leadRow['Qualification Reason']
         })
       });

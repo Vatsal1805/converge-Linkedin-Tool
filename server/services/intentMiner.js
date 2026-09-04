@@ -164,6 +164,41 @@ export async function runRedditRssJob() {
 }
 
 /**
+ * Helper: Verifies HTTP reachability of a URL via HEAD request (with GET fallback & 5s timeout)
+ */
+async function verifyUrlReachable(url) {
+  if (!url || typeof url !== 'string' || !url.startsWith('http')) return false;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const res = await fetch(url, {
+      method: 'HEAD',
+      signal: controller.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ConvergeIntentMiner/2.0' }
+    });
+    clearTimeout(timeoutId);
+    return res.status >= 200 && res.status < 400;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    try {
+      const getController = new AbortController();
+      const getTimeoutId = setTimeout(() => getController.abort(), 5000);
+      const getRes = await fetch(url, {
+        method: 'GET',
+        signal: getController.signal,
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ConvergeIntentMiner/2.0' }
+      });
+      clearTimeout(getTimeoutId);
+      return getRes.status >= 200 && getRes.status < 400;
+    } catch (getErr) {
+      return false;
+    }
+  }
+}
+
+/**
  * 2. Grounded Search Job: Search-grounded queries for buyer intent across public forums
  */
 export async function runGroundedSearchIntentJob() {
@@ -182,6 +217,7 @@ export async function runGroundedSearchIntentJob() {
 
   const selectedQuery = queries[Math.floor(Math.random() * queries.length)];
   let addedCount = 0;
+  let rejectedUrlCount = 0;
 
   try {
     const prompt = `Search live web for ${selectedQuery}. Return PURE JSON ONLY: {"signals": [{"subreddit_or_platform": "r/ecommerce", "post_title": "...", "post_url": "...", "post_excerpt": "...", "service_area": "web_dev", "classification": "genuine_intent", "reasoning": "..."}]}`;
@@ -207,30 +243,41 @@ export async function runGroundedSearchIntentJob() {
           for (const item of (parsed.signals || [])) {
             if (!item.post_url || !item.post_title) continue;
 
+            // 1. Deduplication check
             const { data: existing } = await supabase
               .from('intent_signals')
               .select('id')
               .eq('post_url', item.post_url)
               .maybeSingle();
 
-            if (!existing) {
-              await supabase
-                .from('intent_signals')
-                .insert([
-                  {
-                    source: 'grounded_search',
-                    subreddit_or_platform: item.subreddit_or_platform || 'Grounded Search',
-                    post_title: item.post_title,
-                    post_url: item.post_url,
-                    post_excerpt: item.post_excerpt || 'Discovered via intent search',
-                    detected_service_area: item.service_area || 'general',
-                    ai_relevance_classification: item.classification || 'genuine_intent',
-                    ai_reasoning: item.reasoning || 'Grounded search intent match',
-                    status: 'new'
-                  }
-                ]);
-              addedCount++;
+            if (existing) continue;
+
+            // 2. Reachability Verification
+            const isReachable = await verifyUrlReachable(item.post_url);
+            if (!isReachable) {
+              rejectedUrlCount++;
+              console.warn(`[Intent URL Safeguard Reject] Unreachable URL skipped: ${item.post_url}`);
+              continue;
             }
+
+            const now = new Date().toISOString();
+
+            await supabase
+              .from('intent_signals')
+              .insert([
+                {
+                  source: 'grounded_search',
+                  subreddit_or_platform: item.subreddit_or_platform || 'Grounded Search',
+                  post_title: item.post_title,
+                  post_url: item.post_url,
+                  post_excerpt: item.post_excerpt || 'Discovered via intent search',
+                  detected_service_area: item.service_area || 'general',
+                  ai_relevance_classification: item.classification || 'genuine_intent',
+                  ai_reasoning: item.reasoning || 'Grounded search intent match',
+                  status: 'new'
+                }
+              ]);
+            addedCount++;
           }
         }
       }
@@ -239,6 +286,6 @@ export async function runGroundedSearchIntentJob() {
     console.warn('[Grounded Intent Error]:', err.message);
   }
 
-  console.log(`[Intent Mining] Grounded search job complete. Indexed ${addedCount} new signals.`);
-  return { success: true, addedCount };
+  console.log(`[Intent Mining] Grounded search job complete. Indexed ${addedCount} verified signals (rejected ${rejectedUrlCount} non-resolving URLs).`);
+  return { success: true, addedCount, rejectedUrlCount };
 }

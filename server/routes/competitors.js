@@ -100,14 +100,31 @@ router.get('/competitors', async (req, res) => {
 
 // 2. Discover Live Real Competitors & Public Ad Library Hooks via Gemini
 router.post('/competitors/discover-live', async (req, res) => {
-  const promptText = `You are an autonomous agency research assistant. Perform a live Google search to find 2 real, active digital marketing, web development, or AI automation agencies in Dubai (UAE) or the US targeting B2B clients.
+  let activeCategories = ['Digital Marketing Agencies', 'Web Development Agencies', 'AI/Automation Agencies'];
+  try {
+    const { data: catRows } = await supabase
+      .from('discovery_categories')
+      .select('category_name')
+      .eq('scope', 'competitor_research')
+      .eq('is_active', true);
+
+    if (catRows && catRows.length > 0) {
+      activeCategories = catRows.map(c => c.category_name);
+    }
+  } catch (e) {
+    console.warn('[Settings Categories Query Warning]:', e.message);
+  }
+
+  const catStr = activeCategories.join(', ');
+
+  const promptText = `You are an autonomous agency research assistant. Perform a live Google search to find 2 real, active B2B boutique agencies specializing in any of these categories: ${catStr} in Dubai (UAE) or the US.
 
 For each discovered agency, provide:
 1. Agency Name
 2. Website URL (real official domain like https://single-grain.com)
-3. Industry Tag (e.g. Web Dev & AI, Social Media Marketing)
+3. Industry Tag (matching one of: ${catStr})
 4. Brief notes on their active services
-5. 1 active ad hook or campaign offer (e.g. Meta video ad for Next.js site redesigns or Google search ad for SEO)
+5. 1 active ad hook or campaign offer (e.g. Meta video ad for site redesigns or Google search ad for SEO)
 
 Return PURE JSON format ONLY:
 {

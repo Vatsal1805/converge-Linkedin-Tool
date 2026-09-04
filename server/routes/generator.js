@@ -181,7 +181,12 @@ router.post('/generate', async (req, res) => {
   }
 
   const systemPrompt = getHumanizedSystemPrompt(pillar, formatMode);
-  const userPrompt = `Topic: "${ideaText}". Generate 3 distinct draft variations for the "${pillar}" pillar. Return pure JSON: {"draft_1": "...", "draft_2": "...", "draft_3": "..."}`;
+  
+  const metricGuardInstruction = (pillar === 'proof' || pillar === 'aradhya') 
+    ? `\nSTRICT REAL-METRIC PROVENANCE RULE: Use ONLY the verified figures and facts explicitly stated in the topic description below. DO NOT invent, fabricate, or exaggerate load-time numbers, revenue figures, or CTR stats that are not explicitly provided in the input text!` 
+    : '';
+
+  const userPrompt = `Topic: "${ideaText}".${metricGuardInstruction} Generate 3 distinct draft variations for the "${pillar}" pillar. Return pure JSON: {"draft_1": "...", "draft_2": "...", "draft_3": "..."}`;
 
   try {
     const rawResult = await callAI(systemPrompt, userPrompt);

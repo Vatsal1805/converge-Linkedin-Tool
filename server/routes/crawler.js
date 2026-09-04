@@ -36,8 +36,8 @@ Generate a Converge Digitals post angle. Return pure JSON: {"idea_text": "...", 
   // Try Gemini 3.5 Flash first if available
   if (geminiKey && !geminiKey.includes('placeholder')) {
     try {
-      console.log('[Crawler AI] Calling Gemini 3.5 Flash for trend reframe...');
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+      console.log('[Crawler AI] Calling Gemini 2.5 Flash for trend reframe...');
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
